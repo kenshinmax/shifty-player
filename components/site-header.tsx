@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
-  UserRound,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
@@ -22,14 +21,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MAIN_NAV_LINKS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-
-const NAV_LINKS = [
-  { href: "/seasons", label: "Seasons" },
-  { href: "/evaluations", label: "Evaluations" },
-  { href: "/showcases", label: "Showcases" },
-  { href: "/about", label: "About Us" },
-] as const;
 
 function initials(name: string) {
   return name
@@ -43,7 +36,7 @@ function initials(name: string) {
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, canViewDashboard } = useAuth();
+  const { user, logout, canViewDashboard, canViewPlayerDashboard } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
 
   return (
@@ -51,16 +44,19 @@ export function SiteHeader() {
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-6">
           <Link
-            href="/seasons"
+            href="/"
             className="font-heading shrink-0 text-sm font-semibold tracking-tight"
           >
             Shifty Player
           </Link>
 
           <nav aria-label="Main" className="flex flex-1 items-center gap-1 overflow-x-auto">
-            {NAV_LINKS.map((link) => {
+            {MAIN_NAV_LINKS.map((link) => {
               const active =
-                pathname === link.href || pathname.startsWith(`${link.href}/`);
+                link.href === "/"
+                  ? pathname === "/"
+                  : pathname === link.href ||
+                    pathname.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}
@@ -87,7 +83,21 @@ export function SiteHeader() {
                 )}
               >
                 <LayoutDashboard className="size-3.5" aria-hidden />
-                Dashboard
+                Admin
+              </Link>
+            ) : null}
+            {canViewPlayerDashboard ? (
+              <Link
+                href="/player"
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted",
+                  pathname.startsWith("/player")
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                <LayoutDashboard className="size-3.5" aria-hidden />
+                My Dashboard
               </Link>
             ) : null}
           </nav>
@@ -124,12 +134,18 @@ export function SiteHeader() {
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
+                  {canViewPlayerDashboard ? (
+                    <DropdownMenuItem onClick={() => router.push("/player")}>
+                      <LayoutDashboard />
+                      My Dashboard
+                    </DropdownMenuItem>
+                  ) : null}
                   {canViewDashboard ? (
                     <DropdownMenuItem
                       onClick={() => router.push("/dashboard")}
                     >
                       <LayoutDashboard />
-                      Dashboard
+                      Admin Dashboard
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem onClick={logout}>
@@ -139,31 +155,18 @@ export function SiteHeader() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "gap-2",
-                  )}
-                  aria-label="Account menu"
-                >
-                  <UserRound className="size-4" aria-hidden />
-                  Account
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-48">
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Registered users</DropdownMenuLabel>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    data-testid="sign-in-menu-item"
-                    onClick={() => setLoginOpen(true)}
-                  >
-                    <LogIn />
-                    Sign in
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <button
+                type="button"
+                data-testid="sign-in-button"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "gap-2",
+                )}
+                onClick={() => setLoginOpen(true)}
+              >
+                <LogIn className="size-4" aria-hidden />
+                Sign in
+              </button>
             )}
           </div>
         </div>

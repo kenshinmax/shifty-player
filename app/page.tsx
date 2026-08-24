@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { HomeContent } from "@/components/home-content";
 
 export default function HomePage() {
-  redirect("/seasons");
+  return <HomeContent />;
 }

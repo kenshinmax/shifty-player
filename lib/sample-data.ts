@@ -2,6 +2,11 @@ import type { AppState } from "./types";
 
 const SESSION_JAN_2026 = "session-2026-01";
 
+/** Deterministic demo profile photos for roster cards. */
+function avatarFor(seed: string) {
+  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}&size=80`;
+}
+
 export const sampleData: AppState = {
   sessions: [
     {
@@ -62,6 +67,7 @@ export const sampleData: AppState = {
       grade: "3",
       level: "beginner",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("alex-johnson"),
     },
     {
       id: "player-2",
@@ -70,6 +76,7 @@ export const sampleData: AppState = {
       grade: "4",
       level: "intermediate",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("brianna-lee"),
     },
     {
       id: "player-3",
@@ -78,6 +85,7 @@ export const sampleData: AppState = {
       grade: "5",
       level: "advanced",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("carlos-mendez"),
     },
     {
       id: "player-4",
@@ -86,6 +94,7 @@ export const sampleData: AppState = {
       grade: "3",
       level: "beginner",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("diana-park"),
     },
     {
       id: "player-5",
@@ -94,6 +103,7 @@ export const sampleData: AppState = {
       grade: "6",
       level: "intermediate",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("ethan-brooks"),
     },
     {
       id: "player-6",
@@ -102,6 +112,7 @@ export const sampleData: AppState = {
       grade: "4",
       level: "beginner",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("fatima-ali"),
     },
     {
       id: "player-7",
@@ -110,6 +121,7 @@ export const sampleData: AppState = {
       grade: "5",
       level: "intermediate",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("grace-turner"),
     },
     {
       id: "player-8",
@@ -118,6 +130,7 @@ export const sampleData: AppState = {
       grade: "7",
       level: "advanced",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("henry-kim"),
     },
     {
       id: "player-9",
@@ -126,6 +139,7 @@ export const sampleData: AppState = {
       grade: "6",
       level: "beginner",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("isabella-rossi"),
     },
     {
       id: "player-10",
@@ -134,6 +148,7 @@ export const sampleData: AppState = {
       grade: "8",
       level: "intermediate",
       sessionIds: [SESSION_JAN_2026],
+      avatarUrl: avatarFor("jamal-wright"),
     },
   ],
 };

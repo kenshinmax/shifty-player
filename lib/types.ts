@@ -18,6 +18,8 @@ export type Player = {
   level: Level;
   sessionIds: string[];
   paymentLinkSentAt?: string;
+  /** Optional profile photo URL for roster cards. */
+  avatarUrl?: string;
 };
 
 export type AppState = {

@@ -5,6 +5,8 @@ import {
   canEdit,
   canManageSessions,
   canViewDashboard,
+  canViewPlayerDashboard,
+  getPostLoginPath,
 } from "@/lib/auth";
 
 describe("auth", () => {
@@ -35,5 +37,15 @@ describe("auth", () => {
 
     expect(canViewDashboard(user)).toBe(false);
     expect(canViewDashboard(admin)).toBe(true);
+
+    expect(canViewPlayerDashboard(user)).toBe(true);
+    expect(canViewPlayerDashboard(admin)).toBe(false);
+  });
+
+  it("routes players and admins to the correct post-login path", () => {
+    const user = authenticate("user@demo.com", "user")!;
+    const admin = authenticate("admin@demo.com", "admin")!;
+    expect(getPostLoginPath(user)).toBe("/player");
+    expect(getPostLoginPath(admin)).toBe("/dashboard");
   });
 });

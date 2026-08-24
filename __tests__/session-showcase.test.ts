@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { sampleData } from "@/lib/sample-data";
 import {
-  sliceSessionsForShowcase,
+  getLatestSession,
+  getMoreSessions,
   sortSessionsByRecent,
 } from "@/lib/session-showcase";
 
@@ -12,15 +13,15 @@ describe("session-showcase", () => {
     expect(sorted[1]).toMatchObject({ year: 2025, month: 12 });
   });
 
-  it("slices into megatron, two cards, and four table rows", () => {
-    const { featured, cards, table } = sliceSessionsForShowcase(
-      sampleData.sessions,
-    );
+  it("returns the latest session", () => {
+    expect(getLatestSession(sampleData.sessions)?.label).toBe("Winter");
+    expect(getLatestSession([])).toBeUndefined();
+  });
 
-    expect(featured?.label).toBe("Winter");
-    expect(cards).toHaveLength(2);
-    expect(table).toHaveLength(4);
-    expect(cards[0].label).toBe("Holiday");
-    expect(table[0].label).toBe("October Skills");
+  it("returns remaining sessions for the table", () => {
+    const more = getMoreSessions(sampleData.sessions);
+    expect(more[0]?.label).toBe("Holiday");
+    expect(more).toHaveLength(sampleData.sessions.length - 1);
+    expect(more.every((session) => session.label !== "Winter")).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { SeasonsRegistration } from "@/components/seasons-registration";
 
-export default function SeasonsPage() {
+export default function ProgramsPage() {
   return <SeasonsRegistration />;
 }

@@ -63,3 +63,13 @@ export function canManageSessions(user: AuthUser | null): boolean {
 export function canViewDashboard(user: AuthUser | null): boolean {
   return user?.role === "admin";
 }
+
+export function canViewPlayerDashboard(user: AuthUser | null): boolean {
+  return user?.role === "user";
+}
+
+/** Default landing path after a successful sign-in. */
+export function getPostLoginPath(user: AuthUser): string {
+  if (user.role === "admin") return "/dashboard";
+  return "/player";
+}

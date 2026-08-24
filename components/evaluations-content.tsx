@@ -28,7 +28,7 @@ const SUCCESS_TIMELINE = [
   {
     title: "Show up ready",
     description:
-      "Arrive for open evaluations with hustle, listening ears, and a love for the game.",
+      "Arrive for open clinics with hustle, listening ears, and a love for the game.",
     icon: Flag,
   },
   {
@@ -72,10 +72,10 @@ export function EvaluationsContent() {
     return (
       <div className="space-y-2">
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Evaluations
+          Clinics
         </h1>
         <p className="text-muted-foreground">
-          No seasons are available for evaluation registration yet.
+          No programs are available for clinic registration yet.
         </p>
       </div>
     );
@@ -101,7 +101,7 @@ export function EvaluationsContent() {
         <div className="relative min-h-[min(78vh,42rem)] w-full">
           <Image
             src="/evaluation-hero-player.png"
-            alt="Basketball player driving toward the basket during evaluation"
+            alt="Basketball player driving toward the basket during clinic"
             fill
             priority
             className="object-cover object-[center_20%] animate-in fade-in duration-700"
@@ -118,14 +118,14 @@ export function EvaluationsContent() {
 
           <div className="relative mx-auto flex min-h-[min(78vh,42rem)] w-full max-w-6xl flex-col justify-end gap-6 px-6 py-12 sm:justify-center sm:py-16">
             <p className="font-heading text-sm font-semibold tracking-[0.22em] text-white/80 uppercase animate-in fade-in slide-in-from-bottom-2 duration-500">
-              Shifty Player Evaluations
+              Shifty Player Clinics
             </p>
             <div className="max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-700">
               <h1 className="font-heading text-4xl font-semibold tracking-tight text-balance text-white sm:text-5xl lg:text-6xl">
                 Your next season starts on the floor
               </h1>
               <p className="max-w-xl text-base text-white/85 sm:text-lg">
-                Join the {seasonTitle} evaluation, show your game, and take the
+                Join the {seasonTitle} clinic, show your game, and take the
                 first step toward roster success.
               </p>
             </div>
@@ -161,13 +161,13 @@ export function EvaluationsContent() {
                 )}
               </Button>
               <Link
-                href="/seasons"
+                href="/programs"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "lg" }),
                   "border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white",
                 )}
               >
-                Browse seasons
+                Browse programs
               </Link>
             </div>
           </div>
@@ -183,8 +183,8 @@ export function EvaluationsContent() {
             The path to success
           </h2>
           <p className="text-muted-foreground">
-            From first whistle to final cut—here is how evaluations turn
-            potential into a season roster.
+            From first whistle to final cut—here is how clinics turn potential
+            into a season roster.
           </p>
         </div>
 
@@ -216,7 +216,7 @@ export function EvaluationsContent() {
 
         <div className="flex flex-wrap items-center justify-center gap-3 rounded-2xl border bg-muted/40 px-6 py-5 sm:justify-start">
           <p className="flex-1 text-sm text-muted-foreground">
-            Ready for {seasonTitle}? Sign in and claim your evaluation spot.
+            Ready for {seasonTitle}? Sign in and claim your clinic spot.
           </p>
           <Button onClick={openRegisterFlow}>
             {canAddPlayer ? "Register now" : "Sign in to register"}

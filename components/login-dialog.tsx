@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,12 +14,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/auth-provider";
-import { DEMO_ACCOUNTS } from "@/lib/auth";
+import { DEMO_ACCOUNTS, getPostLoginPath, type AuthUser } from "@/lib/auth";
 
 type LoginDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  /** When set, called instead of the default post-login redirect. */
+  onSuccess?: (user: AuthUser) => void;
 };
 
 export function LoginDialog({
@@ -26,6 +28,7 @@ export function LoginDialog({
   onOpenChange,
   onSuccess,
 }: LoginDialogProps) {
+  const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
   const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
@@ -34,13 +37,17 @@ export function LoginDialog({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const result = login(email, password);
-    if (result.error) {
-      setError(result.error);
+    if (result.error || !result.user) {
+      setError(result.error ?? "Invalid email or password.");
       return;
     }
     setError(null);
     onOpenChange(false);
-    onSuccess?.();
+    if (onSuccess) {
+      onSuccess(result.user);
+      return;
+    }
+    router.push(getPostLoginPath(result.user));
   };
 
   const fillAccount = (accountEmail: string, accountPassword: string) => {
@@ -55,8 +62,8 @@ export function LoginDialog({
         <DialogHeader>
           <DialogTitle>Sign in</DialogTitle>
           <DialogDescription>
-            Use a demo account. Registered users can add players; admins can
-            edit and manage sessions.
+            Use a demo account. Players land on their dashboard; admins open the
+            admin dashboard.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

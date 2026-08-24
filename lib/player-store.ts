@@ -197,6 +197,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         grade: input.grade.trim(),
         level: input.level,
         sessionIds: input.sessionIds,
+        avatarUrl: `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(input.name.trim())}&size=80`,
       }),
     );
     return { error: null };
@@ -215,6 +216,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         level: input.level,
         sessionIds: input.sessionIds,
         paymentLinkSentAt: existing?.paymentLinkSentAt,
+        avatarUrl: existing?.avatarUrl,
       });
     });
     return { error: null };

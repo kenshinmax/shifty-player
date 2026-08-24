@@ -8,20 +8,12 @@ export function sortSessionsByRecent(sessions: Session[]): Session[] {
   });
 }
 
-export type SessionShowcaseSlices = {
-  featured: Session | undefined;
-  cards: Session[];
-  table: Session[];
-};
+/** Newest session, if any exist. */
+export function getLatestSession(sessions: Session[]): Session | undefined {
+  return sortSessionsByRecent(sessions)[0];
+}
 
-/** Top 1 megatron + next 2 cards + next 4 table rows. */
-export function sliceSessionsForShowcase(
-  sessions: Session[],
-): SessionShowcaseSlices {
-  const sorted = sortSessionsByRecent(sessions);
-  return {
-    featured: sorted[0],
-    cards: sorted.slice(1, 3),
-    table: sorted.slice(3, 7),
-  };
+/** All sessions after the latest, newest-first. */
+export function getMoreSessions(sessions: Session[]): Session[] {
+  return sortSessionsByRecent(sessions).slice(1);
 }

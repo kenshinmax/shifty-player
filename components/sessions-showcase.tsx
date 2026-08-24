@@ -1,68 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import {
-  CalendarDays,
-  Pencil,
-  Trash2,
-  Users,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CalendarDays, Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { formatMonth, formatSessionLabel } from "@/lib/format";
-import { sliceSessionsForShowcase } from "@/lib/session-showcase";
-import { formatSessionStatus, type Session } from "@/lib/types";
+import { getLatestSession } from "@/lib/session-showcase";
+import type { Session } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type SessionsShowcaseProps = {
   sessions: Session[];
   playerCounts: Record<string, number>;
-  highlightedSessionIds?: string[];
   canEdit?: boolean;
+  fullBleed?: boolean;
   onEdit: (session: Session) => void;
   onDelete: (sessionId: string) => void;
 };
+
+const darkActionClass =
+  "border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white";
 
 function SessionActions({
   session,
   onEdit,
   onDeleteClick,
   size = "sm",
-  tone = "default",
 }: {
   session: Session;
   onEdit: (session: Session) => void;
   onDeleteClick: (session: Session) => void;
   size?: "sm" | "default";
-  tone?: "default" | "onPrimary";
 }) {
-  const onPrimaryClass =
-    tone === "onPrimary"
-      ? "border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-      : undefined;
-
   return (
     <div className="flex flex-wrap gap-2">
       <Button
         variant="outline"
         size={size}
-        className={onPrimaryClass}
+        className={darkActionClass}
         onClick={() => onEdit(session)}
         aria-label={`Edit ${formatSessionLabel(session.year, session.month, session.label)}`}
       >
@@ -72,7 +47,7 @@ function SessionActions({
       <Button
         variant="outline"
         size={size}
-        className={onPrimaryClass}
+        className={darkActionClass}
         onClick={() => onDeleteClick(session)}
         aria-label={`Delete ${formatSessionLabel(session.year, session.month, session.label)}`}
       >
@@ -86,13 +61,13 @@ function SessionActions({
 export function SessionsShowcase({
   sessions,
   playerCounts,
-  highlightedSessionIds = [],
   canEdit = false,
+  fullBleed = false,
   onEdit,
   onDelete,
 }: SessionsShowcaseProps) {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
-  const { featured, cards, table } = sliceSessionsForShowcase(sessions);
+  const featured = getLatestSession(sessions);
 
   if (!featured) {
     return (
@@ -103,152 +78,79 @@ export function SessionsShowcase({
   }
 
   const featuredCount = playerCounts[featured.id] ?? 0;
-  const featuredHighlighted = highlightedSessionIds.includes(featured.id);
 
   return (
     <>
-      <div className="space-y-6">
-        <article
-          data-testid="session-megatron"
-          className={`relative overflow-hidden rounded-2xl bg-primary text-primary-foreground ring-1 ring-foreground/10 ${
-            featuredHighlighted ? "ring-2 ring-ring" : ""
-          }`}
+      <section
+        data-testid="session-megatron"
+        className={cn(
+          "group relative overflow-hidden bg-zinc-900 text-white",
+          fullBleed
+            ? "relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2"
+            : "flex min-h-[22rem] flex-col justify-end rounded-2xl border border-white/10 p-8 ring-1 ring-white/5 transition-transform duration-500 hover:-translate-y-1",
+        )}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 bg-linear-to-br from-cyan-400/25 via-transparent to-transparent"
+          aria-hidden
+        />
+        <div
+          className={cn(
+            "pointer-events-none absolute font-heading font-semibold leading-none text-white/5 transition-colors duration-500 group-hover:text-white/10",
+            fullBleed
+              ? "-top-20 -right-8 text-[11rem] sm:text-[14rem]"
+              : "-top-16 -right-10 text-[9rem]",
+          )}
+          aria-hidden
         >
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,oklch(1_0_0_/_0.12),transparent_55%)]" />
-          <div className="relative flex flex-col gap-6 p-8 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-4">
-              <Badge
-                variant="secondary"
-                className="bg-primary-foreground/15 text-primary-foreground"
+          01
+        </div>
+        <div
+          className={cn(
+            "relative",
+            fullBleed
+              ? "mx-auto flex min-h-[min(70vh,36rem)] w-full max-w-6xl flex-col justify-end gap-8 px-6 py-14 sm:flex-row sm:items-end sm:justify-between sm:py-20"
+              : "flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between",
+          )}
+        >
+          <div className="space-y-5">
+            <span className="inline-flex size-11 items-center justify-center rounded-full border border-white/15 bg-white/5">
+              <CalendarDays className="size-5" aria-hidden />
+            </span>
+            <div className="space-y-3">
+              <p className="text-xs font-semibold tracking-[0.22em] text-white/55 uppercase">
+                Latest program
+              </p>
+              <h3
+                className={cn(
+                  "font-heading font-semibold tracking-tight uppercase",
+                  fullBleed
+                    ? "text-5xl sm:text-6xl lg:text-7xl"
+                    : "text-4xl sm:text-5xl",
+                )}
               >
-                Most recent
-              </Badge>
-              <div className="space-y-2">
-                <h3 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-                  {featured.label ?? formatMonth(featured.month)}
-                </h3>
-                <p className="flex items-center gap-2 text-primary-foreground/80">
-                  <CalendarDays className="size-4" aria-hidden />
-                  {formatMonth(featured.month)} {featured.year}
-                </p>
-              </div>
-              <p className="flex items-center gap-2 text-lg">
-                <Users className="size-5" aria-hidden />
-                <span className="font-medium">{featuredCount}</span>
-                <span className="text-primary-foreground/80">
-                  registered {featuredCount === 1 ? "player" : "players"}
-                </span>
+                {featured.label ?? formatMonth(featured.month)}
+              </h3>
+              <p className="text-lg font-medium text-white sm:text-xl">
+                {formatMonth(featured.month)} {featured.year}
+              </p>
+              <p className="flex items-center gap-2 text-sm text-white/65 sm:text-base">
+                <Users className="size-4" aria-hidden />
+                <span className="font-medium text-white">{featuredCount}</span>
+                registered {featuredCount === 1 ? "player" : "players"}
               </p>
             </div>
-            {canEdit ? (
-              <SessionActions
-                session={featured}
-                onEdit={onEdit}
-                onDeleteClick={setDeleteTarget}
-                size="default"
-                tone="onPrimary"
-              />
-            ) : null}
           </div>
-        </article>
-
-        {cards.length > 0 ? (
-          <div
-            data-testid="session-cards"
-            className="grid gap-4 sm:grid-cols-2"
-          >
-            {cards.map((session) => {
-              const count = playerCounts[session.id] ?? 0;
-              const highlighted = highlightedSessionIds.includes(session.id);
-              return (
-                <Card
-                  key={session.id}
-                  className={highlighted ? "ring-2 ring-ring" : undefined}
-                >
-                  <CardHeader>
-                    <CardTitle className="font-heading text-lg">
-                      {session.label ?? formatMonth(session.month)}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-1.5">
-                      <CalendarDays className="size-3.5" aria-hidden />
-                      {formatMonth(session.month)} {session.year}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="flex items-center gap-2 text-muted-foreground">
-                      <Users className="size-4" aria-hidden />
-                      {count} {count === 1 ? "player" : "players"}
-                    </p>
-                  </CardContent>
-                  {canEdit ? (
-                    <CardFooter className="justify-end gap-2 border-t-0 bg-transparent">
-                      <SessionActions
-                        session={session}
-                        onEdit={onEdit}
-                        onDeleteClick={setDeleteTarget}
-                      />
-                    </CardFooter>
-                  ) : null}
-                </Card>
-              );
-            })}
-          </div>
-        ) : null}
-
-        {table.length > 0 ? (
-          <div data-testid="session-table" className="space-y-3">
-            <h3 className="font-heading text-sm font-medium text-muted-foreground">
-              More sessions
-            </h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Year</TableHead>
-                  <TableHead>Month</TableHead>
-                  <TableHead>Label</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canEdit ? (
-                    <TableHead className="text-right">Actions</TableHead>
-                  ) : null}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {table.map((session) => {
-                  const highlighted = highlightedSessionIds.includes(
-                    session.id,
-                  );
-                  return (
-                    <TableRow
-                      key={session.id}
-                      className={highlighted ? "bg-muted/40" : undefined}
-                    >
-                      <TableCell>{session.year}</TableCell>
-                      <TableCell>{formatMonth(session.month)}</TableCell>
-                      <TableCell>{session.label ?? "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {formatSessionStatus(session.status)}
-                        </Badge>
-                      </TableCell>
-                      {canEdit ? (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end">
-                            <SessionActions
-                              session={session}
-                              onEdit={onEdit}
-                              onDeleteClick={setDeleteTarget}
-                            />
-                          </div>
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        ) : null}
-      </div>
+          {canEdit ? (
+            <SessionActions
+              session={featured}
+              onEdit={onEdit}
+              onDeleteClick={setDeleteTarget}
+              size="default"
+            />
+          ) : null}
+        </div>
+      </section>
 
       <DeleteConfirmDialog
         open={deleteTarget !== null}
