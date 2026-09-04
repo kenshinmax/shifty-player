@@ -1,5 +1,5 @@
-import { EvaluationsContent } from "@/components/evaluations-content";
+import { ClinicsContent } from "@/components/clinics-content";
 
 export default function ClinicsPage() {
-  return <EvaluationsContent />;
+  return <ClinicsContent />;
 }

@@ -57,7 +57,7 @@ const SUCCESS_TIMELINE = [
   },
 ] as const;
 
-export function EvaluationsContent() {
+export function ClinicsContent() {
   const { canAddPlayer } = useAuth();
   const { state, createPlayer, countPlayersForSession } = useRegistration();
   const [loginOpen, setLoginOpen] = useState(false);

@@ -17,6 +17,8 @@ export type Player = {
   grade: string;
   level: Level;
   sessionIds: string[];
+  /** Parent account that manages this player (demo parents register children). */
+  parentUserId?: string;
   paymentLinkSentAt?: string;
   /** Optional profile photo URL for roster cards. */
   avatarUrl?: string;

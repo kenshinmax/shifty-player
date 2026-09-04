@@ -27,6 +27,32 @@ export function getVisiblePlayers(
   );
 }
 
+export function getChildrenForParent(
+  players: Player[],
+  parentUserId: string,
+): Player[] {
+  return players
+    .filter((player) => player.parentUserId === parentUserId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function registerChildForClinic(
+  state: AppState,
+  playerId: string,
+  sessionId: string,
+): AppState | { error: string } {
+  const player = state.players.find((entry) => entry.id === playerId);
+  if (!player) return { error: "Player not found." };
+  if (player.sessionIds.includes(sessionId)) {
+    return { error: "This child is already registered for that clinic." };
+  }
+
+  return updatePlayer(state, playerId, {
+    ...player,
+    sessionIds: [...player.sessionIds, sessionId],
+  });
+}
+
 export function countPlayersForSession(
   players: Player[],
   sessionId: string,
@@ -152,7 +178,38 @@ export type PlayerInput = {
   grade: string;
   level: Level;
   sessionIds: string[];
+  parentUserId?: string;
 };
+
+export type ChildInput = {
+  name: string;
+  grade: string;
+  level: Level;
+};
+
+export function validateChildInput(input: ChildInput): string | null {
+  if (!input.name.trim()) return "Name is required.";
+  if (!input.grade.trim()) return "Grade is required.";
+  if (!input.level) return "Level is required.";
+  return null;
+}
+
+export function addChildForParent(
+  state: AppState,
+  parentUserId: string,
+  parentEmail: string,
+  input: ChildInput,
+): AppState {
+  return addPlayer(state, {
+    name: input.name.trim(),
+    email: parentEmail.trim().toLowerCase(),
+    grade: input.grade.trim(),
+    level: input.level,
+    sessionIds: [],
+    parentUserId,
+    avatarUrl: `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(input.name.trim())}&size=80`,
+  });
+}
 
 export function validatePlayerInput(input: PlayerInput): string | null {
   if (!input.name.trim()) return "Name is required.";
@@ -197,6 +254,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         grade: input.grade.trim(),
         level: input.level,
         sessionIds: input.sessionIds,
+        parentUserId: input.parentUserId,
         avatarUrl: `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(input.name.trim())}&size=80`,
       }),
     );
@@ -215,6 +273,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         grade: input.grade.trim(),
         level: input.level,
         sessionIds: input.sessionIds,
+        parentUserId: existing?.parentUserId,
         paymentLinkSentAt: existing?.paymentLinkSentAt,
         avatarUrl: existing?.avatarUrl,
       });
@@ -281,6 +340,43 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     setState((current) => deleteSession(current, sessionId));
   }, []);
 
+  const addChild = useCallback(
+    (parentUserId: string, parentEmail: string, input: ChildInput) => {
+      const error = validateChildInput(input);
+      if (error) return { error, childId: null };
+
+      let childId: string | null = null;
+      setState((current) => {
+        const next = addChildForParent(
+          current,
+          parentUserId,
+          parentEmail,
+          input,
+        );
+        childId = next.players.at(-1)?.id ?? null;
+        return next;
+      });
+      return { error: null, childId };
+    },
+    [],
+  );
+
+  const registerForClinic = useCallback(
+    (playerId: string, sessionId: string) => {
+      let registerError: string | undefined;
+      setState((current) => {
+        const result = registerChildForClinic(current, playerId, sessionId);
+        if ("error" in result) {
+          registerError = result.error;
+          return current;
+        }
+        return result;
+      });
+      return registerError ? { error: registerError } : { error: null };
+    },
+    [],
+  );
+
   return {
     state,
     createPlayer,
@@ -290,6 +386,8 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     createSession,
     editSession,
     removeSession,
+    addChild,
+    registerForClinic,
     countPlayersForSession: (sessionId: string) =>
       countPlayersForSession(state.players, sessionId),
     getSessionLabel: (session: Session) =>

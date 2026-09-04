@@ -5,8 +5,8 @@ import {
 } from "@/lib/player-history";
 
 describe("player-history", () => {
-  it("returns completed seasons for the demo player", () => {
-    const seasons = getCompletedSeasonsForUser("user-1");
+  it("returns completed seasons for a demo child", () => {
+    const seasons = getCompletedSeasonsForUser("player-child-1");
     expect(seasons.length).toBeGreaterThan(0);
     expect(seasons[0]).toMatchObject({
       date: expect.any(String),

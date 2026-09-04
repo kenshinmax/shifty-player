@@ -1,22 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { sampleData } from "@/lib/sample-data";
 import {
+  addChildForParent,
   addPlayer,
   addSession,
   deletePlayer,
   deleteSession,
   filterSessionsByYearMonth,
+  getChildrenForParent,
   getVisiblePlayers,
+  registerChildForClinic,
   updatePlayer,
   updateSession,
+  validateChildInput,
   validatePlayerInput,
 } from "@/lib/player-store";
 
 describe("sampleData", () => {
-  it("loads seven sessions and ten players on the January 2026 session", () => {
+  it("loads seven sessions and twelve players including parent children", () => {
     expect(sampleData.sessions).toHaveLength(7);
-    expect(sampleData.players).toHaveLength(10);
+    expect(sampleData.players).toHaveLength(12);
     expect(sampleData.sessions[0]).toMatchObject({ year: 2026, month: 1 });
+    expect(getChildrenForParent(sampleData.players, "user-1")).toHaveLength(2);
   });
 });
 
@@ -45,7 +50,7 @@ describe("player-store", () => {
       level: "beginner",
       sessionIds: [sampleData.sessions[0].id],
     });
-    expect(state.players).toHaveLength(11);
+    expect(state.players).toHaveLength(13);
 
     const newPlayer = state.players.at(-1)!;
     state = updatePlayer(state, newPlayer.id, {
@@ -55,7 +60,7 @@ describe("player-store", () => {
     expect(state.players.at(-1)?.grade).toBe("5");
 
     state = deletePlayer(state, newPlayer.id);
-    expect(state.players).toHaveLength(10);
+    expect(state.players).toHaveLength(12);
   });
 
   it("adds, updates, and deletes sessions with player cleanup", () => {
@@ -145,5 +150,48 @@ describe("player-store", () => {
         sessionIds: [],
       }),
     ).toBe("Select at least one session.");
+  });
+
+  it("lists children for a parent and registers them for clinics", () => {
+    const children = getChildrenForParent(sampleData.players, "user-1");
+    expect(children.map((child) => child.name)).toEqual([
+      "Lucas Rivera",
+      "Maya Rivera",
+    ]);
+
+    const maya = children.find((child) => child.name === "Maya Rivera")!;
+    const clinicId = sampleData.sessions[0].id;
+
+    const registered = registerChildForClinic(sampleData, maya.id, clinicId);
+    expect("error" in registered).toBe(false);
+    if ("error" in registered) return;
+
+    const updatedMaya = registered.players.find(
+      (player) => player.id === maya.id,
+    );
+    expect(updatedMaya?.sessionIds).toContain(clinicId);
+
+    const duplicate = registerChildForClinic(registered, maya.id, clinicId);
+    expect(duplicate).toMatchObject({
+      error: "This child is already registered for that clinic.",
+    });
+  });
+
+  it("adds a child for a parent account", () => {
+    const next = addChildForParent(sampleData, "user-1", "user@demo.com", {
+      name: "Nova Rivera",
+      grade: "3",
+      level: "beginner",
+    });
+    expect(next.players).toHaveLength(13);
+    expect(next.players.at(-1)).toMatchObject({
+      name: "Nova Rivera",
+      parentUserId: "user-1",
+      email: "user@demo.com",
+      sessionIds: [],
+    });
+    expect(validateChildInput({ name: "", grade: "3", level: "beginner" })).toBe(
+      "Name is required.",
+    );
   });
 });

@@ -4,7 +4,7 @@ import { PlayersTable } from "@/components/players-table";
 import { sampleData } from "@/lib/sample-data";
 
 describe("PlayersTable", () => {
-  it("renders ten sample players", () => {
+  it("renders sample players including parent children", () => {
     render(
       <PlayersTable
         players={sampleData.players}
@@ -16,6 +16,7 @@ describe("PlayersTable", () => {
     );
 
     expect(screen.getByText("Alex Johnson")).toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(11);
+    expect(screen.getByText("Maya Rivera")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(13);
   });
 });

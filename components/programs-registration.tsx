@@ -9,10 +9,11 @@ import { useRegistration } from "@/components/registration-provider";
 import { SessionsShowcase } from "@/components/sessions-showcase";
 import { SessionsTable } from "@/components/sessions-table";
 import { SeasonsValues } from "@/components/seasons-values";
+import { Summer2027Programs } from "@/components/summer-2027-programs";
 import { Button } from "@/components/ui/button";
 import { getLatestSession } from "@/lib/session-showcase";
 
-export function SeasonsRegistration() {
+export function ProgramsRegistration() {
   const { canAddPlayer, canManageSessions } = useAuth();
   const { state, createPlayer, countPlayersForSession } = useRegistration();
 
@@ -64,7 +65,8 @@ export function SeasonsRegistration() {
         </header>
 
         <section className="space-y-10" data-testid="sessions-section">
-          <SeasonsValues />
+          <Summer2027Programs />
+          
           <SessionsTable
             sessions={state.sessions}
             canEdit={false}

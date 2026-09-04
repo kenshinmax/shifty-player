@@ -199,7 +199,7 @@ export function HomeContent() {
               <span aria-hidden className="text-white/40">
                 ◆
               </span>
-              <span>Be elite</span>
+              <span>Be glorious</span>
             </div>
           </div>
         </div>
@@ -299,13 +299,13 @@ export function HomeContent() {
               Start with clinics, then grow through each stage.
             </p>
             <Link
-              href="/clinics"
+              href="/programs"
               className={cn(
                 buttonVariants({ size: "lg" }),
                 "bg-white text-black hover:bg-white/90",
               )}
             >
-              Explore clinics
+              Explore programs
               <ArrowRight data-icon="inline-end" />
             </Link>
           </div>

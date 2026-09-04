@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   authenticate,
   canAddPlayer,
@@ -7,9 +7,17 @@ import {
   canViewDashboard,
   canViewPlayerDashboard,
   getPostLoginPath,
+  registerParentAccount,
+  resetAccounts,
+  resolveLoginRedirect,
+  validateSignupInput,
 } from "@/lib/auth";
 
 describe("auth", () => {
+  afterEach(() => {
+    resetAccounts();
+  });
+
   it("authenticates demo user and admin accounts", () => {
     expect(authenticate("user@demo.com", "user")).toMatchObject({
       role: "user",
@@ -47,5 +55,44 @@ describe("auth", () => {
     const admin = authenticate("admin@demo.com", "admin")!;
     expect(getPostLoginPath(user)).toBe("/player");
     expect(getPostLoginPath(admin)).toBe("/dashboard");
+  });
+
+  it("resolves safe login redirects", () => {
+    const user = authenticate("user@demo.com", "user")!;
+    expect(resolveLoginRedirect(user, "/player")).toBe("/player");
+    expect(resolveLoginRedirect(user, "//evil.com")).toBe("/player");
+    expect(resolveLoginRedirect(user, null)).toBe("/player");
+  });
+
+  it("registers a new parent account and signs them in via authenticate", () => {
+    expect(
+      validateSignupInput({ name: "", email: "a@b.com", password: "pass" }),
+    ).toBe("Name is required.");
+
+    const created = registerParentAccount({
+      name: "Sam Parent",
+      email: "sam.parent@example.com",
+      password: "pass",
+    });
+    expect(created.error).toBeNull();
+    expect(created.user).toMatchObject({
+      name: "Sam Parent",
+      email: "sam.parent@example.com",
+      role: "user",
+    });
+
+    expect(
+      authenticate("sam.parent@example.com", "pass"),
+    ).toMatchObject({ name: "Sam Parent" });
+
+    expect(
+      registerParentAccount({
+        name: "Duplicate",
+        email: "sam.parent@example.com",
+        password: "pass",
+      }),
+    ).toMatchObject({
+      error: "An account with that email already exists.",
+    });
   });
 });

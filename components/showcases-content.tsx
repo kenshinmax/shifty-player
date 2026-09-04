@@ -134,16 +134,16 @@ export function ShowcasesContent() {
 
           <div className="flex flex-wrap items-center justify-center gap-3 border-t border-white/10 pt-8 animate-in fade-in duration-1000 sm:justify-between">
             <p className="text-sm text-white/60">
-              Start with evaluations, then grow through each stage.
+              Start with clinics, then grow through each stage.
             </p>
             <Link
-              href="/evaluations"
+              href="/clinics"
               className={cn(
                 buttonVariants({ size: "lg" }),
                 "bg-white text-black hover:bg-white/90",
               )}
             >
-              Explore evaluations
+              Explore clinics
               <ArrowRight data-icon="inline-end" />
             </Link>
           </div>

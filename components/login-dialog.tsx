@@ -62,7 +62,7 @@ export function LoginDialog({
         <DialogHeader>
           <DialogTitle>Sign in</DialogTitle>
           <DialogDescription>
-            Use a demo account. Players land on their dashboard; admins open the
+            Use a demo account. Parents land on their dashboard; admins open the
             admin dashboard.
           </DialogDescription>
         </DialogHeader>

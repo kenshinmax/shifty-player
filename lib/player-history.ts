@@ -9,44 +9,46 @@ export type CompletedSeasonRecord = {
   gamesPlayed: number;
 };
 
-/** Demo completed-season history keyed by signed-in user id. */
+/** Demo completed-season history keyed by child player id. */
 export const PLAYER_COMPLETED_SEASONS: Record<string, CompletedSeasonRecord[]> =
   {
-    "user-1": [
+    "player-child-1": [
       {
-        id: "history-1",
+        id: "history-maya-1",
         date: "2025-07",
         seasonLabel: "July Camp",
-        grade: "6",
+        grade: "4",
         level: "beginner",
         gamesPlayed: 8,
       },
       {
-        id: "history-2",
+        id: "history-maya-2",
         date: "2025-08",
         seasonLabel: "Summer Wrap",
-        grade: "6",
+        grade: "4",
         level: "beginner",
         gamesPlayed: 10,
       },
+    ],
+    "player-child-2": [
       {
-        id: "history-3",
+        id: "history-lucas-1",
         date: "2025-09",
         seasonLabel: "Back to School",
-        grade: "7",
+        grade: "6",
         level: "intermediate",
         gamesPlayed: 12,
       },
       {
-        id: "history-4",
+        id: "history-lucas-2",
         date: "2025-10",
         seasonLabel: "October Skills",
-        grade: "7",
+        grade: "6",
         level: "intermediate",
         gamesPlayed: 14,
       },
       {
-        id: "history-5",
+        id: "history-lucas-3",
         date: "2025-11",
         seasonLabel: "Fall Classic",
         grade: "7",

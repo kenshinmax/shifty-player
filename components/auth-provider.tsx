@@ -15,16 +15,19 @@ import {
   canManageSessions,
   canViewDashboard,
   canViewPlayerDashboard,
+  registerParentAccount,
   type AuthUser,
+  type SignupInput,
 } from "@/lib/auth";
 
-type LoginResult =
+type AuthResult =
   | { error: string; user?: undefined }
   | { error: null; user: AuthUser };
 
 type AuthContextValue = {
   user: AuthUser | null;
-  login: (email: string, password: string) => LoginResult;
+  login: (email: string, password: string) => AuthResult;
+  signup: (input: SignupInput) => AuthResult;
   logout: () => void;
   canAddPlayer: boolean;
   canEdit: boolean;
@@ -38,13 +41,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  const login = useCallback((email: string, password: string): LoginResult => {
+  const login = useCallback((email: string, password: string): AuthResult => {
     const nextUser = authenticate(email, password);
     if (!nextUser) {
       return { error: "Invalid email or password." };
     }
     setUser(nextUser);
     return { error: null, user: nextUser };
+  }, []);
+
+  const signup = useCallback((input: SignupInput): AuthResult => {
+    const result = registerParentAccount(input);
+    if (result.error || !result.user) {
+      return { error: result.error ?? "Unable to create account." };
+    }
+    setUser(result.user);
+    return { error: null, user: result.user };
   }, []);
 
   const logout = useCallback(() => {
@@ -55,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       login,
+      signup,
       logout,
       canAddPlayer: canAddPlayer(user),
       canEdit: canEdit(user),
@@ -62,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canViewDashboard: canViewDashboard(user),
       canViewPlayerDashboard: canViewPlayerDashboard(user),
     }),
-    [user, login, logout],
+    [user, login, signup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -11,11 +11,17 @@ export type DemoAccount = AuthUser & {
   password: string;
 };
 
-/** Client-only demo accounts (no real auth backend). */
+export type SignupInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+/** Seed demo accounts (no real auth backend). */
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     id: "user-1",
-    name: "Jordan Player",
+    name: "Jordan Rivera",
     email: "user@demo.com",
     password: "user",
     role: "user",
@@ -29,23 +35,71 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   },
 ];
 
+/** Runtime account list — starts from demo seed; signup adds parent accounts. */
+let accounts: DemoAccount[] = DEMO_ACCOUNTS.map((account) => ({ ...account }));
+
+/** Reset runtime accounts to the demo seed (useful in tests). */
+export function resetAccounts(): void {
+  accounts = DEMO_ACCOUNTS.map((account) => ({ ...account }));
+}
+
+function toAuthUser(account: DemoAccount): AuthUser {
+  return {
+    id: account.id,
+    name: account.name,
+    email: account.email,
+    role: account.role,
+  };
+}
+
+export function findAccountByEmail(email: string): DemoAccount | undefined {
+  const normalized = email.trim().toLowerCase();
+  return accounts.find(
+    (account) => account.email.toLowerCase() === normalized,
+  );
+}
+
 export function authenticate(
   email: string,
   password: string,
 ): AuthUser | null {
-  const match = DEMO_ACCOUNTS.find(
-    (account) =>
-      account.email.toLowerCase() === email.trim().toLowerCase() &&
-      account.password === password,
-  );
-  if (!match) return null;
+  const match = findAccountByEmail(email);
+  if (!match || match.password !== password) return null;
+  return toAuthUser(match);
+}
 
-  return {
-    id: match.id,
-    name: match.name,
-    email: match.email,
-    role: match.role,
+export function validateSignupInput(input: SignupInput): string | null {
+  if (!input.name.trim()) return "Name is required.";
+  if (!input.email.trim()) return "Email is required.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
+    return "Enter a valid email.";
+  }
+  if (input.password.length < 4) {
+    return "Password must be at least 4 characters.";
+  }
+  return null;
+}
+
+/** Create a parent (role: user) account for program registration. */
+export function registerParentAccount(
+  input: SignupInput,
+): { error: string; user?: undefined } | { error: null; user: AuthUser } {
+  const validationError = validateSignupInput(input);
+  if (validationError) return { error: validationError };
+
+  if (findAccountByEmail(input.email)) {
+    return { error: "An account with that email already exists." };
+  }
+
+  const account: DemoAccount = {
+    id: `user-${crypto.randomUUID()}`,
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
+    role: "user",
   };
+  accounts = [...accounts, account];
+  return { error: null, user: toAuthUser(account) };
 }
 
 export function canAddPlayer(user: AuthUser | null): boolean {
@@ -72,4 +126,15 @@ export function canViewPlayerDashboard(user: AuthUser | null): boolean {
 export function getPostLoginPath(user: AuthUser): string {
   if (user.role === "admin") return "/dashboard";
   return "/player";
+}
+
+/** Safe relative redirect target after login (defaults to post-login path). */
+export function resolveLoginRedirect(
+  user: AuthUser,
+  nextPath: string | null | undefined,
+): string {
+  if (nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")) {
+    return nextPath;
+  }
+  return getPostLoginPath(user);
 }
