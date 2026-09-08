@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ActiveProgramsSection } from "@/components/active-programs-section";
 import { ParentChildrenOverview } from "@/components/parent-children-overview";
-import { ParentClinicRegistration } from "@/components/parent-clinic-registration";
+import { ParentProgramRegistration } from "@/components/parent-program-registration";
 import { useAuth } from "@/components/auth-provider";
 import {
   Table,
@@ -24,8 +25,8 @@ import {
 } from "@/components/ui/select";
 import { useRegistration } from "@/components/registration-provider";
 import {
-  formatSeasonDate,
-  getCompletedSeasonsForUser,
+  formatProgramDate,
+  getCompletedProgramsForUser,
 } from "@/lib/player-history";
 import { getChildrenForParent } from "@/lib/player-store";
 
@@ -65,28 +66,28 @@ export default function PlayerDashboardPage() {
     return <p className="text-muted-foreground">Redirecting…</p>;
   }
 
-  const seasons = historyChildId
-    ? getCompletedSeasonsForUser(historyChildId)
+  const historyChild = children.find((child) => child.id === historyChildId);
+  const completedPrograms = historyChildId
+    ? getCompletedProgramsForUser(historyChildId)
     : [];
-  const totalGames = seasons.reduce(
-    (sum, season) => sum + season.gamesPlayed,
+  const totalGames = completedPrograms.reduce(
+    (sum, program) => sum + program.gamesPlayed,
     0,
   );
-  const historyChild = children.find((child) => child.id === historyChildId);
 
   return (
     <div className="space-y-8" data-testid="player-dashboard">
       <header className="space-y-2">
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Parent Dashboard
+          Overview
         </h1>
         <p className="text-muted-foreground">
-          Welcome back, {user.name}. Register your children for clinics and
+          Welcome back, {user.name}. Register your children for programs and
           review their program history.
         </p>
       </header>
 
-      <ParentClinicRegistration />
+      <ParentProgramRegistration />
 
       <ParentChildrenOverview parentUserId={user.id} />
 
@@ -94,7 +95,7 @@ export default function PlayerDashboardPage() {
         <div className="rounded-xl border p-6">
           <p className="text-sm text-muted-foreground">Completed programs</p>
           <p className="mt-1 font-heading text-3xl font-semibold">
-            {seasons.length}
+            {completedPrograms.length}
           </p>
         </div>
         <div className="rounded-xl border p-6">
@@ -104,6 +105,11 @@ export default function PlayerDashboardPage() {
           </p>
         </div>
       </div>
+
+      <ActiveProgramsSection
+        childrenPlayers={children}
+        programs={state.programs}
+      />
 
       <section className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -148,32 +154,32 @@ export default function PlayerDashboardPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {seasons.length === 0 ? (
+            {completedPrograms.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
                   className="text-center text-muted-foreground"
                 >
                   {historyChild
-                    ? `${historyChild.name} has no completed programs yet. Register for a clinic to get started.`
-                    : "Add a child and register for a clinic to get started."}
+                    ? `${historyChild.name} has no completed programs yet. Register for a program to get started.`
+                    : "Add a player and register for a program to get started."}
                 </TableCell>
               </TableRow>
             ) : (
-              seasons.map((season) => (
-                <TableRow key={season.id}>
+              completedPrograms.map((program) => (
+                <TableRow key={program.id}>
                   <TableCell className="font-medium">
-                    {formatSeasonDate(season.date)}
+                    {formatProgramDate(program.date)}
                   </TableCell>
-                  <TableCell>{season.seasonLabel}</TableCell>
-                  <TableCell>{season.grade}</TableCell>
+                  <TableCell>{program.programLabel}</TableCell>
+                  <TableCell>{program.grade}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="capitalize">
-                      {season.level}
+                      {program.level}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {season.gamesPlayed}
+                    {program.gamesPlayed}
                   </TableCell>
                 </TableRow>
               ))

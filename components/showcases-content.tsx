@@ -23,7 +23,7 @@ const JOURNEY_STEPS = [
     summary: "Compete with structure",
     description:
       "Team habits, decision-making, and live reps. Players start reading the floor and competing with purpose.",
-    detail: "IQ · Team play · Season ready",
+    detail: "IQ · Team play · Program ready",
     icon: Layers,
     accent: "from-sky-400/20 via-transparent to-transparent",
     sizeClass: "min-h-[20rem] lg:min-h-[23rem]",

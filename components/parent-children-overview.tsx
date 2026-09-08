@@ -11,9 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useRegistration } from "@/components/registration-provider";
-import { formatSessionLabel } from "@/lib/format";
+import { getClinicsForProgram, formatClinicLabel } from "@/lib/programs";
 import { getChildrenForParent } from "@/lib/player-store";
-import type { Player, Session } from "@/lib/types";
+import type { Player, Program, Session } from "@/lib/types";
 
 type ParentChildrenOverviewProps = {
   parentUserId: string;
@@ -28,11 +28,21 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-function clinicLabelsForChild(child: Player, sessions: Session[]): string[] {
+function clinicRegistrationsForChild(
+  child: Player,
+  programs: Program[],
+  sessions: Session[],
+): { id: string; label: string }[] {
   return child.sessionIds.map((sessionId) => {
-    const session = sessions.find((entry) => entry.id === sessionId);
-    if (!session) return sessionId;
-    return formatSessionLabel(session.year, session.month, session.label);
+    const clinic = sessions.find((entry) => entry.id === sessionId);
+    const program = programs.find(
+      (entry) => entry.id === clinic?.programId,
+    );
+    const clinicLabel = clinic ? formatClinicLabel(clinic) : sessionId;
+    return {
+      id: sessionId,
+      label: program ? `${program.name} · ${clinicLabel}` : clinicLabel,
+    };
   });
 }
 
@@ -51,15 +61,19 @@ export function ParentChildrenOverview({
   return (
     <section className="space-y-4" data-testid="parent-children-overview">
       <div>
-        <h2 className="font-heading text-xl font-medium">My children</h2>
+        <h2 className="font-heading text-xl font-medium">Players</h2>
         <p className="text-sm text-muted-foreground">
-          Current clinic registrations for each child.
+          Current clinic registrations for each player.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {children.map((child) => {
-          const clinics = clinicLabelsForChild(child, state.sessions);
+          const registrations = clinicRegistrationsForChild(
+            child,
+            state.programs,
+            state.sessions,
+          );
 
           return (
             <Card key={child.id}>
@@ -79,15 +93,15 @@ export function ParentChildrenOverview({
                 </div>
               </CardHeader>
               <CardContent>
-                {clinics.length === 0 ? (
+                {registrations.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Not registered for any clinics yet.
                   </p>
                 ) : (
                   <ul className="flex flex-wrap gap-2">
-                    {clinics.map((label) => (
-                      <li key={label}>
-                        <Badge variant="secondary">{label}</Badge>
+                    {registrations.map((entry) => (
+                      <li key={entry.id}>
+                        <Badge variant="secondary">{entry.label}</Badge>
                       </li>
                     ))}
                   </ul>

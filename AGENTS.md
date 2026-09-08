@@ -15,7 +15,7 @@ Business Requirements
 Technical Details
 1. Single page to show all registered players in a table
 2. Actions: Add players with a simiple form, edit player details and enalbe players to select from different sessions to register for
-3. Tech: Next.js app frontend, client-rendered, no-persistence, no auth
+Tech: Next.js app frontend, client-rendered, localStorage persistence for registration + auth session, demo auth
 Quality: scaffolding + unit test per phase; Playwright E2E
 
 <!-- BEGIN:nextjs-agent-rules -->

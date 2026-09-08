@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { sampleData } from "./sample-data";
+import { loadRegistrationState, saveRegistrationState } from "./storage";
 import type { AppState, Level, Player, Session, SessionStatus } from "./types";
 import { sessionKey } from "./format";
 
@@ -39,18 +40,63 @@ export function getChildrenForParent(
 export function registerChildForClinic(
   state: AppState,
   playerId: string,
-  sessionId: string,
+  programId: string,
+  clinicId: string,
 ): AppState | { error: string } {
   const player = state.players.find((entry) => entry.id === playerId);
   if (!player) return { error: "Player not found." };
-  if (player.sessionIds.includes(sessionId)) {
+
+  const program = state.programs.find((entry) => entry.id === programId);
+  if (!program) return { error: "Program not found." };
+  if (!program.open) {
+    return { error: "This program is not open for registration." };
+  }
+
+  const clinic = state.sessions.find((entry) => entry.id === clinicId);
+  if (!clinic) return { error: "Clinic not found." };
+  if (clinic.programId !== programId) {
+    return { error: "That clinic is not part of the selected program." };
+  }
+  if (!clinic.available) {
+    return { error: "This clinic is not available for registration." };
+  }
+  if (player.sessionIds.includes(clinicId)) {
     return { error: "This child is already registered for that clinic." };
   }
 
   return updatePlayer(state, playerId, {
     ...player,
-    sessionIds: [...player.sessionIds, sessionId],
+    programIds: player.programIds.includes(programId)
+      ? player.programIds
+      : [...player.programIds, programId],
+    sessionIds: [...player.sessionIds, clinicId],
   });
+}
+
+export function setProgramOpen(
+  state: AppState,
+  programId: string,
+  open: boolean,
+): AppState {
+  return {
+    ...state,
+    programs: state.programs.map((program) =>
+      program.id === programId ? { ...program, open } : program,
+    ),
+  };
+}
+
+export function setClinicAvailable(
+  state: AppState,
+  clinicId: string,
+  available: boolean,
+): AppState {
+  return {
+    ...state,
+    sessions: state.sessions.map((session) =>
+      session.id === clinicId ? { ...session, available } : session,
+    ),
+  };
 }
 
 export function countPlayersForSession(
@@ -65,12 +111,14 @@ export function findDuplicateSession(
   sessions: Session[],
   year: number,
   month: number,
+  week?: number,
   excludeId?: string,
 ): Session | undefined {
   return sessions.find(
     (session) =>
       session.year === year &&
       session.month === month &&
+      (session.week ?? undefined) === (week ?? undefined) &&
       session.id !== excludeId,
   );
 }
@@ -108,40 +156,60 @@ export function deletePlayer(state: AppState, playerId: string): AppState {
 
 export function addSession(
   state: AppState,
-  session: Omit<Session, "id">,
+  session: Omit<Session, "id" | "available"> & { available?: boolean },
 ): AppState | { error: string } {
-  if (findDuplicateSession(state.sessions, session.year, session.month)) {
-    return { error: "A session already exists for that year and month." };
+  if (
+    findDuplicateSession(
+      state.sessions,
+      session.year,
+      session.month,
+      session.week,
+    )
+  ) {
+    return { error: "A clinic already exists for that week and month." };
   }
 
   const id = `session-${crypto.randomUUID()}`;
   return {
     ...state,
-    sessions: [...state.sessions, { ...session, id }],
+    sessions: [
+      ...state.sessions,
+      {
+        ...session,
+        available: session.available ?? true,
+        id,
+      },
+    ],
   };
 }
 
 export function updateSession(
   state: AppState,
   sessionId: string,
-  updates: Omit<Session, "id">,
+  updates: Omit<Session, "id" | "available"> & { available?: boolean },
 ): AppState | { error: string } {
   if (
     findDuplicateSession(
       state.sessions,
       updates.year,
       updates.month,
+      updates.week,
       sessionId,
     )
   ) {
-    return { error: "A session already exists for that year and month." };
+    return { error: "A clinic already exists for that week and month." };
   }
 
   return {
     ...state,
     sessions: state.sessions.map((session) =>
       session.id === sessionId
-        ? { ...session, ...updates, id: sessionId }
+        ? {
+            ...session,
+            ...updates,
+            available: updates.available ?? session.available,
+            id: sessionId,
+          }
         : session,
     ),
   };
@@ -149,6 +217,7 @@ export function updateSession(
 
 export function deleteSession(state: AppState, sessionId: string): AppState {
   return {
+    ...state,
     sessions: state.sessions.filter((session) => session.id !== sessionId),
     players: state.players.map((player) => ({
       ...player,
@@ -205,10 +274,27 @@ export function addChildForParent(
     email: parentEmail.trim().toLowerCase(),
     grade: input.grade.trim(),
     level: input.level,
+    programIds: [],
     sessionIds: [],
     parentUserId,
     avatarUrl: `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(input.name.trim())}&size=80`,
   });
+}
+
+function programIdsForSessions(
+  sessions: Session[],
+  sessionIds: string[],
+): string[] {
+  return [
+    ...new Set(
+      sessionIds
+        .map(
+          (sessionId) =>
+            sessions.find((session) => session.id === sessionId)?.programId,
+        )
+        .filter((programId): programId is string => Boolean(programId)),
+    ),
+  ];
 }
 
 export function validatePlayerInput(input: PlayerInput): string | null {
@@ -228,6 +314,8 @@ export type SessionInput = {
   month: number;
   label?: string;
   status?: SessionStatus;
+  programId?: string;
+  week?: number;
 };
 
 export function validateSessionInput(input: SessionInput): string | null {
@@ -242,6 +330,17 @@ export function validateSessionInput(input: SessionInput): string | null {
 
 export function usePlayerStore(initialState: AppState = sampleData) {
   const [state, setState] = useState<AppState>(initialState);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setState(loadRegistrationState());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveRegistrationState(state);
+  }, [state, hydrated]);
 
   const createPlayer = useCallback((input: PlayerInput) => {
     const error = validatePlayerInput(input);
@@ -253,6 +352,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         email: input.email.trim().toLowerCase(),
         grade: input.grade.trim(),
         level: input.level,
+        programIds: programIdsForSessions(current.sessions, input.sessionIds),
         sessionIds: input.sessionIds,
         parentUserId: input.parentUserId,
         avatarUrl: `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(input.name.trim())}&size=80`,
@@ -272,6 +372,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         email: input.email.trim().toLowerCase(),
         grade: input.grade.trim(),
         level: input.level,
+        programIds: programIdsForSessions(current.sessions, input.sessionIds),
         sessionIds: input.sessionIds,
         parentUserId: existing?.parentUserId,
         paymentLinkSentAt: existing?.paymentLinkSentAt,
@@ -295,9 +396,20 @@ export function usePlayerStore(initialState: AppState = sampleData) {
 
     let addError: string | undefined;
     setState((current) => {
+      const programId =
+        input.programId ??
+        current.programs.find((program) => program.status === "trending")?.id ??
+        current.programs[0]?.id;
+      if (!programId) {
+        addError = "Create a program before adding clinics.";
+        return current;
+      }
+
       const result = addSession(current, {
+        programId,
         year: input.year,
         month: input.month,
+        week: input.week,
         label: input.label?.trim() || undefined,
         status: input.status ?? "trending",
       });
@@ -321,8 +433,10 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         (session) => session.id === sessionId,
       );
       const result = updateSession(current, sessionId, {
+        programId: input.programId ?? existing?.programId ?? current.programs[0]?.id ?? "",
         year: input.year,
         month: input.month,
+        week: input.week ?? existing?.week,
         label: input.label?.trim() || undefined,
         status: input.status ?? existing?.status ?? "trending",
       });
@@ -362,10 +476,15 @@ export function usePlayerStore(initialState: AppState = sampleData) {
   );
 
   const registerForClinic = useCallback(
-    (playerId: string, sessionId: string) => {
+    (playerId: string, programId: string, clinicId: string) => {
       let registerError: string | undefined;
       setState((current) => {
-        const result = registerChildForClinic(current, playerId, sessionId);
+        const result = registerChildForClinic(
+          current,
+          playerId,
+          programId,
+          clinicId,
+        );
         if ("error" in result) {
           registerError = result.error;
           return current;
@@ -373,6 +492,20 @@ export function usePlayerStore(initialState: AppState = sampleData) {
         return result;
       });
       return registerError ? { error: registerError } : { error: null };
+    },
+    [],
+  );
+
+  const setProgramRegistrationOpen = useCallback(
+    (programId: string, open: boolean) => {
+      setState((current) => setProgramOpen(current, programId, open));
+    },
+    [],
+  );
+
+  const setClinicRegistrationAvailable = useCallback(
+    (clinicId: string, available: boolean) => {
+      setState((current) => setClinicAvailable(current, clinicId, available));
     },
     [],
   );
@@ -388,6 +521,8 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     removeSession,
     addChild,
     registerForClinic,
+    setProgramRegistrationOpen,
+    setClinicRegistrationAvailable,
     countPlayersForSession: (sessionId: string) =>
       countPlayersForSession(state.players, sessionId),
     getSessionLabel: (session: Session) =>

@@ -24,9 +24,9 @@ const CORE_VALUES = [
   },
 ] as const;
 
-export function SeasonsValues() {
+export function ProgramsValues() {
   return (
-    <section data-testid="seasons-values" className="space-y-10">
+    <section data-testid="programs-values" className="space-y-10">
       <hr className="border-0 border-t border-zinc-300" />
 
       <div className="max-w-3xl space-y-4">
@@ -37,7 +37,7 @@ export function SeasonsValues() {
           Work hard. Play smart. Compete.
         </h2>
         <p className="text-lg text-muted-foreground">
-          The season is built on one standard — show up ready, think the game,
+          The program is built on one standard — show up ready, think the game,
           and never take a possession off.
         </p>
       </div>

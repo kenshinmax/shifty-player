@@ -5,7 +5,7 @@ export default function AboutPage() {
         About Us
       </h1>
       <p className="max-w-2xl text-muted-foreground">
-        Shifty Player helps basketball programs register players for seasonal
+        Shifty Player helps basketball programs register players for program
         sessions, track skill levels, and manage registrations in one place.
       </p>
     </div>

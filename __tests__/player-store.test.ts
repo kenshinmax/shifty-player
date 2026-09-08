@@ -10,17 +10,32 @@ import {
   getChildrenForParent,
   getVisiblePlayers,
   registerChildForClinic,
+  setClinicAvailable,
+  setProgramOpen,
   updatePlayer,
   updateSession,
   validateChildInput,
   validatePlayerInput,
 } from "@/lib/player-store";
 
+const winterClinic = sampleData.sessions.find(
+  (session) => session.id === "session-2026-01",
+)!;
+const summerProgram = sampleData.programs.find(
+  (program) => program.name === "Summer Camp 2026",
+)!;
+
 describe("sampleData", () => {
-  it("loads seven sessions and twelve players including parent children", () => {
-    expect(sampleData.sessions).toHaveLength(7);
+  it("loads programs, clinics, and parent children", () => {
+    expect(sampleData.programs.length).toBeGreaterThanOrEqual(8);
+    expect(sampleData.sessions).toHaveLength(13);
     expect(sampleData.players).toHaveLength(12);
-    expect(sampleData.sessions[0]).toMatchObject({ year: 2026, month: 1 });
+    expect(summerProgram).toBeDefined();
+    expect(
+      sampleData.sessions.filter(
+        (session) => session.programId === summerProgram.id,
+      ),
+    ).toHaveLength(6);
     expect(getChildrenForParent(sampleData.players, "user-1")).toHaveLength(2);
   });
 });
@@ -28,10 +43,32 @@ describe("sampleData", () => {
 describe("player-store", () => {
   it("filters sessions by year and month", () => {
     const state = {
+      programs: sampleData.programs,
       sessions: [
-        { id: "s1", year: 2026, month: 1, status: "trending" as const },
-        { id: "s2", year: 2026, month: 2, status: "in-progress" as const },
-        { id: "s3", year: 2025, month: 12, status: "completed" as const },
+        {
+          id: "s1",
+          programId: "p1",
+          year: 2026,
+          month: 1,
+          status: "trending" as const,
+          available: true,
+        },
+        {
+          id: "s2",
+          programId: "p1",
+          year: 2026,
+          month: 2,
+          status: "in-progress" as const,
+          available: true,
+        },
+        {
+          id: "s3",
+          programId: "p2",
+          year: 2025,
+          month: 12,
+          status: "completed" as const,
+          available: false,
+        },
       ],
       players: [],
     };
@@ -48,7 +85,8 @@ describe("player-store", () => {
       email: "new.player@example.com",
       grade: "4",
       level: "beginner",
-      sessionIds: [sampleData.sessions[0].id],
+      programIds: [winterClinic.programId],
+      sessionIds: [winterClinic.id],
     });
     expect(state.players).toHaveLength(13);
 
@@ -65,9 +103,10 @@ describe("player-store", () => {
 
   it("adds, updates, and deletes sessions with player cleanup", () => {
     let state = sampleData;
-    const sessionId = sampleData.sessions[0].id;
+    const sessionId = winterClinic.id;
 
     const duplicate = addSession(state, {
+      programId: winterClinic.programId,
       year: 2026,
       month: 1,
       status: "trending",
@@ -75,6 +114,7 @@ describe("player-store", () => {
     expect("error" in duplicate).toBe(true);
 
     const added = addSession(state, {
+      programId: winterClinic.programId,
       year: 2026,
       month: 2,
       label: "Spring",
@@ -87,6 +127,7 @@ describe("player-store", () => {
     const newSession = state.sessions.find((session) => session.month === 2)!;
 
     const updated = updateSession(state, newSession.id, {
+      programId: newSession.programId,
       year: 2026,
       month: 2,
       label: "Early Spring",
@@ -113,9 +154,7 @@ describe("player-store", () => {
   });
 
   it("returns visible players for selected sessions", () => {
-    const visible = getVisiblePlayers(sampleData.players, [
-      sampleData.sessions[0].id,
-    ]);
+    const visible = getVisiblePlayers(sampleData.players, [winterClinic.id]);
     expect(visible).toHaveLength(10);
     expect(getVisiblePlayers(sampleData.players, [])).toHaveLength(0);
   });
@@ -152,7 +191,7 @@ describe("player-store", () => {
     ).toBe("Select at least one session.");
   });
 
-  it("lists children for a parent and registers them for clinics", () => {
+  it("lists children for a parent and registers them for available clinics", () => {
     const children = getChildrenForParent(sampleData.players, "user-1");
     expect(children.map((child) => child.name)).toEqual([
       "Lucas Rivera",
@@ -160,21 +199,49 @@ describe("player-store", () => {
     ]);
 
     const maya = children.find((child) => child.name === "Maya Rivera")!;
-    const clinicId = sampleData.sessions[0].id;
+    const week1 = sampleData.sessions.find(
+      (session) => session.label === "Week 1",
+    )!;
 
-    const registered = registerChildForClinic(sampleData, maya.id, clinicId);
+    const registered = registerChildForClinic(
+      sampleData,
+      maya.id,
+      summerProgram.id,
+      week1.id,
+    );
     expect("error" in registered).toBe(false);
     if ("error" in registered) return;
 
     const updatedMaya = registered.players.find(
       (player) => player.id === maya.id,
     );
-    expect(updatedMaya?.sessionIds).toContain(clinicId);
+    expect(updatedMaya?.programIds).toContain(summerProgram.id);
+    expect(updatedMaya?.sessionIds).toEqual([week1.id]);
 
-    const duplicate = registerChildForClinic(registered, maya.id, clinicId);
-    expect(duplicate).toMatchObject({
-      error: "This child is already registered for that clinic.",
+    const closed = setProgramOpen(sampleData, summerProgram.id, false);
+    expect(
+      registerChildForClinic(closed, maya.id, summerProgram.id, week1.id),
+    ).toMatchObject({
+      error: "This program is not open for registration.",
     });
+
+    const week5 = sampleData.sessions.find(
+      (session) => session.label === "Week 5",
+    )!;
+    expect(
+      registerChildForClinic(sampleData, maya.id, summerProgram.id, week5.id),
+    ).toMatchObject({
+      error: "This clinic is not available for registration.",
+    });
+
+    const madeAvailable = setClinicAvailable(sampleData, week5.id, true);
+    const week5Registered = registerChildForClinic(
+      madeAvailable,
+      maya.id,
+      summerProgram.id,
+      week5.id,
+    );
+    expect("error" in week5Registered).toBe(false);
   });
 
   it("adds a child for a parent account", () => {
@@ -188,6 +255,7 @@ describe("player-store", () => {
       name: "Nova Rivera",
       parentUserId: "user-1",
       email: "user@demo.com",
+      programIds: [],
       sessionIds: [],
     });
     expect(validateChildInput({ name: "", grade: "3", level: "beginner" })).toBe(

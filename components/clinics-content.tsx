@@ -52,7 +52,7 @@ const SUCCESS_TIMELINE = [
   {
     title: "Earn your spot",
     description:
-      "Top performers land roster invitations and start the path toward season success.",
+      "Top performers land roster invitations and start the path toward program success.",
     icon: Trophy,
   },
 ] as const;
@@ -63,12 +63,12 @@ export function ClinicsContent() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
 
-  const latestSeason = useMemo(
+  const latestProgram = useMemo(
     () => sortSessionsByRecent(state.sessions)[0],
     [state.sessions],
   );
 
-  if (!latestSeason) {
+  if (!latestProgram) {
     return (
       <div className="space-y-2">
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
@@ -81,8 +81,8 @@ export function ClinicsContent() {
     );
   }
 
-  const playerCount = countPlayersForSession(latestSeason.id);
-  const seasonTitle = latestSeason.label ?? formatMonth(latestSeason.month);
+  const playerCount = countPlayersForSession(latestProgram.id);
+  const programTitle = latestProgram.label ?? formatMonth(latestProgram.month);
 
   const openRegisterFlow = () => {
     if (canAddPlayer) {
@@ -122,20 +122,20 @@ export function ClinicsContent() {
             </p>
             <div className="max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-700">
               <h1 className="font-heading text-4xl font-semibold tracking-tight text-balance text-white sm:text-5xl lg:text-6xl">
-                Your next season starts on the floor
+                Your next program starts on the floor
               </h1>
               <p className="max-w-xl text-base text-white/85 sm:text-lg">
-                Join the {seasonTitle} clinic, show your game, and take the
+                Join the {programTitle} clinic, show your game, and take the
                 first step toward roster success.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <Badge className="border-white/20 bg-white/15 text-white hover:bg-white/20">
-                {formatMonth(latestSeason.month)} {latestSeason.year}
+                {formatMonth(latestProgram.month)} {latestProgram.year}
               </Badge>
               <Badge className="border-white/20 bg-white/15 text-white hover:bg-white/20">
-                {formatSessionStatus(latestSeason.status)}
+                {formatSessionStatus(latestProgram.status)}
               </Badge>
               <Badge className="border-white/20 bg-white/15 text-white hover:bg-white/20">
                 {playerCount} registered
@@ -151,7 +151,7 @@ export function ClinicsContent() {
                 {canAddPlayer ? (
                   <>
                     <UserPlus data-icon="inline-start" />
-                    Register for {seasonTitle}
+                    Register for {programTitle}
                   </>
                 ) : (
                   <>
@@ -184,7 +184,7 @@ export function ClinicsContent() {
           </h2>
           <p className="text-muted-foreground">
             From first whistle to final cut—here is how clinics turn potential
-            into a season roster.
+            into a program roster.
           </p>
         </div>
 
@@ -216,7 +216,7 @@ export function ClinicsContent() {
 
         <div className="flex flex-wrap items-center justify-center gap-3 rounded-2xl border bg-muted/40 px-6 py-5 sm:justify-start">
           <p className="flex-1 text-sm text-muted-foreground">
-            Ready for {seasonTitle}? Sign in and claim your clinic spot.
+            Ready for {programTitle}? Sign in and claim your clinic spot.
           </p>
           <Button onClick={openRegisterFlow}>
             {canAddPlayer ? "Register now" : "Sign in to register"}
@@ -234,11 +234,11 @@ export function ClinicsContent() {
         open={registerOpen}
         onOpenChange={setRegisterOpen}
         sessions={state.sessions}
-        defaultSessionIds={[latestSeason.id]}
+        defaultSessionIds={[latestProgram.id]}
         onSubmit={(input) => {
           const result = createPlayer(input);
           if (!result.error) {
-            toast.success(`${input.name} registered for ${seasonTitle}`, {
+            toast.success(`${input.name} registered for ${programTitle}`, {
               description:
                 "Admins can send a payment link from the Dashboard.",
             });

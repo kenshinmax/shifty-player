@@ -3,29 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, UserPlus, X } from "lucide-react";
+import { AdminScheduleAvailability } from "@/components/admin-schedule-availability";
 import { useAuth } from "@/components/auth-provider";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { PlayersRosterGrid } from "@/components/players-roster-grid";
 import { PlayersTable } from "@/components/players-table";
 import { RegistrationInsights } from "@/components/registration-insights";
 import { useRegistration } from "@/components/registration-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   DASHBOARD_NAV,
   type DashboardSection,
 } from "@/lib/dashboard-nav";
 import { formatMonth } from "@/lib/format";
 import { getLatestSession } from "@/lib/session-showcase";
-import { formatSessionStatus, type Player } from "@/lib/types";
+import { type Player } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function NavButtons({
@@ -131,10 +123,10 @@ export function AdminDashboard() {
   const pendingCount = state.players.length - sentCount;
   const activeNav = DASHBOARD_NAV.find((item) => item.id === activeSection)!;
   const upcomingSession = getLatestSession(state.sessions);
-  const upcomingSeasonLabel = upcomingSession
+  const upcomingProgramLabel = upcomingSession
     ? (upcomingSession.label ?? formatMonth(upcomingSession.month))
-    : "the upcoming season";
-  const upcomingSeasonPlayers = upcomingSession
+    : "the upcoming program";
+  const upcomingProgramPlayers = upcomingSession
     ? state.players.filter((player) =>
         player.sessionIds.includes(upcomingSession.id),
       ).length
@@ -242,7 +234,7 @@ export function AdminDashboard() {
                     </h3>
                     <p className="max-w-2xl text-sm text-white/70 sm:text-base">
                       Here&apos;s a quick look at registration for{" "}
-                      {upcomingSeasonLabel}
+                      {upcomingProgramLabel}
                       {upcomingSession
                         ? ` · ${formatMonth(upcomingSession.month)} ${upcomingSession.year}`
                         : ""}
@@ -259,7 +251,7 @@ export function AdminDashboard() {
                         {state.players.length}
                       </p>
                       <p className="mt-1 text-sm text-white/65">
-                        {upcomingSeasonPlayers} locked into {upcomingSeasonLabel}
+                        {upcomingProgramPlayers} locked into {upcomingProgramLabel}
                       </p>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
@@ -292,13 +284,13 @@ export function AdminDashboard() {
 
               <RegistrationInsights
                 registeredPlayers={state.players.length}
-                rosterPlayers={upcomingSeasonPlayers}
+                rosterPlayers={upcomingProgramPlayers}
                 paymentLinksSent={sentCount}
               />
 
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/40 px-5 py-4">
                 <p className="text-sm text-muted-foreground">
-                  Ready to grow the roster for {upcomingSeasonLabel}?
+                  Ready to grow the roster for {upcomingProgramLabel}?
                 </p>
                 <Button onClick={() => selectSection("rosters")}>
                   <UserPlus data-icon="inline-start" />
@@ -346,39 +338,7 @@ export function AdminDashboard() {
 
           {activeSection === "schedule" ? (
             <section className="space-y-4" data-testid="dashboard-schedule">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Label</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Players</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {state.sessions.map((session) => {
-                    const count = state.players.filter((player) =>
-                      player.sessionIds.includes(session.id),
-                    ).length;
-                    return (
-                      <TableRow key={session.id}>
-                        <TableCell className="font-medium">
-                          {session.label ?? formatMonth(session.month)}
-                        </TableCell>
-                        <TableCell>
-                          {formatMonth(session.month)} {session.year}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {formatSessionStatus(session.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{count}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <AdminScheduleAvailability />
             </section>
           ) : null}
 
@@ -392,7 +352,7 @@ export function AdminDashboard() {
                   Family updates
                 </h3>
                 <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                  Draft season reminders, clinic follow-ups, and payment
+                  Draft program reminders, clinic follow-ups, and payment
                   notices from one place. Messaging templates arrive in a later
                   release — payment links remain available under Financials.
                 </p>

@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -19,6 +20,7 @@ import {
   type AuthUser,
   type SignupInput,
 } from "@/lib/auth";
+import { loadAuthUser, saveAuthUser } from "@/lib/storage";
 
 type AuthResult =
   | { error: string; user?: undefined }
@@ -40,6 +42,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setUser(loadAuthUser());
+    setHydrated(true);
+  }, []);
 
   const login = useCallback((email: string, password: string): AuthResult => {
     const nextUser = authenticate(email, password);
@@ -47,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "Invalid email or password." };
     }
     setUser(nextUser);
+    saveAuthUser(nextUser);
     return { error: null, user: nextUser };
   }, []);
 
@@ -56,11 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: result.error ?? "Unable to create account." };
     }
     setUser(result.user);
+    saveAuthUser(result.user);
     return { error: null, user: result.user };
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
+    saveAuthUser(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -77,6 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [user, login, signup, logout],
   );
+
+  if (!hydrated) {
+    return null;
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -75,7 +75,7 @@ const JOURNEY_STEPS = [
     summary: "Compete with structure",
     description:
       "Team habits, decision-making, and live reps. Players start reading the floor and competing with purpose.",
-    detail: "IQ · Team play · Season ready",
+    detail: "IQ · Team play · Program ready",
     icon: Layers,
     accent: "from-sky-400/20 via-transparent to-transparent",
     sizeClass: "min-h-[20rem] lg:min-h-[23rem]",
@@ -100,14 +100,14 @@ export function HomeContent() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
 
-  const latestSeason = useMemo(
+  const latestProgram = useMemo(
     () => sortSessionsByRecent(state.sessions)[0],
     [state.sessions],
   );
 
-  const seasonTitle = latestSeason
-    ? (latestSeason.label ?? formatMonth(latestSeason.month))
-    : "the next season";
+  const programTitle = latestProgram
+    ? (latestProgram.label ?? formatMonth(latestProgram.month))
+    : "the next program";
 
   const openRegisterFlow = () => {
     if (canAddPlayer) {
@@ -148,7 +148,7 @@ export function HomeContent() {
             </p>
             <div className="max-w-3xl space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-700">
               <h1 className="font-heading text-4xl font-semibold tracking-tight text-balance text-white sm:text-5xl lg:text-6xl">
-                This season,
+                This program,
                 <br />
                 multiple ways
                 <br />
@@ -170,7 +170,7 @@ export function HomeContent() {
                 {canAddPlayer ? (
                   <>
                     <UserPlus data-icon="inline-start" />
-                    Register for {seasonTitle}
+                    Register for {programTitle}
                   </>
                 ) : (
                   <>
@@ -319,16 +319,16 @@ export function HomeContent() {
         onSuccess={() => setRegisterOpen(true)}
       />
 
-      {latestSeason ? (
+      {latestProgram ? (
         <PlayerFormDialog
           open={registerOpen}
           onOpenChange={setRegisterOpen}
           sessions={state.sessions}
-          defaultSessionIds={[latestSeason.id]}
+          defaultSessionIds={[latestProgram.id]}
           onSubmit={(input) => {
             const result = createPlayer(input);
             if (!result.error) {
-              toast.success(`${input.name} registered for ${seasonTitle}`, {
+              toast.success(`${input.name} registered for ${programTitle}`, {
                 description:
                   "Admins can send a payment link from the Dashboard.",
               });

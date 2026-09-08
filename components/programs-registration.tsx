@@ -8,7 +8,7 @@ import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { useRegistration } from "@/components/registration-provider";
 import { SessionsShowcase } from "@/components/sessions-showcase";
 import { SessionsTable } from "@/components/sessions-table";
-import { SeasonsValues } from "@/components/seasons-values";
+import { ProgramsValues } from "@/components/programs-values";
 import { Summer2027Programs } from "@/components/summer-2027-programs";
 import { Button } from "@/components/ui/button";
 import { getLatestSession } from "@/lib/session-showcase";
@@ -56,17 +56,12 @@ export function ProgramsRegistration() {
                 : null}
             </p>
           </div>
-          {canAddPlayer ? (
-            <Button onClick={() => setPlayerDialogOpen(true)}>
-              <UserPlus data-icon="inline-start" />
-              Add Player
-            </Button>
-          ) : null}
+         
         </header>
 
         <section className="space-y-10" data-testid="sessions-section">
           <Summer2027Programs />
-          
+          <ProgramsValues />
           <SessionsTable
             sessions={state.sessions}
             canEdit={false}

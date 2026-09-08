@@ -1,3 +1,9 @@
+import {
+  AUTH_ACCOUNTS_STORAGE_KEY,
+  loadJson,
+  saveJson,
+} from "./storage";
+
 export type UserRole = "user" | "admin";
 
 export type AuthUser = {
@@ -35,12 +41,34 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   },
 ];
 
-/** Runtime account list — starts from demo seed; signup adds parent accounts. */
-let accounts: DemoAccount[] = DEMO_ACCOUNTS.map((account) => ({ ...account }));
+function seedAccounts(): DemoAccount[] {
+  return DEMO_ACCOUNTS.map((account) => ({ ...account }));
+}
+
+function readStoredAccounts(): DemoAccount[] {
+  const stored = loadJson<DemoAccount[] | null>(AUTH_ACCOUNTS_STORAGE_KEY, null);
+  if (!Array.isArray(stored) || stored.length === 0) return seedAccounts();
+  return stored;
+}
+
+/** Runtime account list — starts from demo seed / localStorage; signup adds parents. */
+let accounts: DemoAccount[] = seedAccounts();
+
+function ensureAccountsHydrated(): void {
+  if (typeof window === "undefined") return;
+  accounts = readStoredAccounts();
+}
+
+function persistAccounts(): void {
+  saveJson(AUTH_ACCOUNTS_STORAGE_KEY, accounts);
+}
 
 /** Reset runtime accounts to the demo seed (useful in tests). */
 export function resetAccounts(): void {
-  accounts = DEMO_ACCOUNTS.map((account) => ({ ...account }));
+  accounts = seedAccounts();
+  if (typeof window !== "undefined") {
+    saveJson(AUTH_ACCOUNTS_STORAGE_KEY, accounts);
+  }
 }
 
 function toAuthUser(account: DemoAccount): AuthUser {
@@ -53,6 +81,7 @@ function toAuthUser(account: DemoAccount): AuthUser {
 }
 
 export function findAccountByEmail(email: string): DemoAccount | undefined {
+  ensureAccountsHydrated();
   const normalized = email.trim().toLowerCase();
   return accounts.find(
     (account) => account.email.toLowerCase() === normalized,
@@ -84,6 +113,7 @@ export function validateSignupInput(input: SignupInput): string | null {
 export function registerParentAccount(
   input: SignupInput,
 ): { error: string; user?: undefined } | { error: null; user: AuthUser } {
+  ensureAccountsHydrated();
   const validationError = validateSignupInput(input);
   if (validationError) return { error: validationError };
 
@@ -99,6 +129,7 @@ export function registerParentAccount(
     role: "user",
   };
   accounts = [...accounts, account];
+  persistAccounts();
   return { error: null, user: toAuthUser(account) };
 }
 

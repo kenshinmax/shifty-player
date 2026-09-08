@@ -9,7 +9,7 @@ const SUMMER_2027_PROGRAMS = [
     title: "Summer Camp",
     summary: "Train all summer",
     description:
-      "Daily skills, live play, and coaching that builds habits for the next season. Built for players who want reps, structure, and a competitive edge.",
+      "Daily skills, live play, and coaching that builds habits for the next program. Built for players who want reps, structure, and a competitive edge.",
     starts: "July – Aug",
     grades: "5–10th",
     timeframe: "Summer",

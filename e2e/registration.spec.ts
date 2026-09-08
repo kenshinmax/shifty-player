@@ -30,11 +30,17 @@ async function signInAsPlayer(page: Page) {
   );
 }
 
+async function clearClientState(page: Page) {
+  await page.goto("/");
+  await page.evaluate(() => localStorage.clear());
+}
+
 test("admin dashboard players and payment links", async ({ page }) => {
+  await clearClientState(page);
   await page.goto("/programs");
 
   await expect(page.getByRole("heading", { name: "Programs" })).toBeVisible();
-  await expect(page.getByTestId("session-megatron")).toContainText("Winter");
+  await expect(page.getByTestId("session-megatron")).toContainText("Week 1");
   await expect(page.getByTestId("session-cards")).toHaveCount(0);
   await expect(page.getByTestId("summer-2027-programs")).toContainText(
     "Summer 2027 Camps & Showcases",
@@ -65,9 +71,9 @@ test("admin dashboard players and payment links", async ({ page }) => {
   await expect(page.getByTestId("summer-2027-card-showcases")).toContainText(
     "Showcases",
   );
-  await expect(page.getByTestId("seasons-values")).toContainText("Work hard");
-  await expect(page.getByTestId("seasons-values")).toContainText("Play smart");
-  await expect(page.getByTestId("seasons-values")).toContainText("Compete");
+  await expect(page.getByTestId("programs-values")).toContainText("Work hard");
+  await expect(page.getByTestId("programs-values")).toContainText("Play smart");
+  await expect(page.getByTestId("programs-values")).toContainText("Compete");
   await expect(page.getByTestId("session-table")).toContainText("Holiday");
   await expect(page.getByTestId("session-table")).toContainText("Fall Classic");
   await expect(page.getByTestId("players-section")).toHaveCount(0);
@@ -129,6 +135,9 @@ test("admin dashboard players and payment links", async ({ page }) => {
 
   await page.getByTestId("dashboard-nav-schedule").click();
   await expect(page.getByTestId("dashboard-schedule")).toContainText("Winter");
+  await expect(page.getByTestId("admin-schedule-availability")).toContainText(
+    "Program & clinic availability",
+  );
   await page.getByTestId("dashboard-nav-rosters").click();
   await expect(playersSection(page)).toBeVisible();
 
@@ -171,6 +180,7 @@ test("admin dashboard players and payment links", async ({ page }) => {
 test("register now opens login page with signup for guests", async ({
   page,
 }) => {
+  await clearClientState(page);
   await page.goto("/programs");
 
   await page
@@ -195,6 +205,7 @@ test("register now opens login page with signup for guests", async ({
 test("quick signup on login page creates a parent account", async ({
   page,
 }) => {
+  await clearClientState(page);
   await page.goto("/login?next=/player");
 
   await page.locator("#signup-name").fill("Casey Parent");
@@ -208,17 +219,16 @@ test("quick signup on login page creates a parent account", async ({
   );
 });
 
-test("parent login lands on dashboard with clinic registration", async ({
+test("parent login lands on dashboard with program registration", async ({
   page,
 }) => {
+  await clearClientState(page);
   await page.goto("/programs");
   await signInAsPlayer(page);
 
   await expect(page).toHaveURL(/\/player$/);
-  await expect(
-    page.getByRole("heading", { name: "Parent Dashboard" }),
-  ).toBeVisible();
-  await expect(page.getByTestId("parent-clinic-registration")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByTestId("parent-program-registration")).toBeVisible();
   await expect(page.getByTestId("parent-children-overview")).toContainText(
     "Maya Rivera",
   );
@@ -229,16 +239,31 @@ test("parent login lands on dashboard with clinic registration", async ({
 
   await page.locator("#register-child").click();
   await page.getByRole("option", { name: /Maya Rivera/ }).click();
+  await page.locator("#register-program").click();
+  await page.getByRole("option", { name: "Summer Camp 2026" }).click();
+  await expect(page.getByTestId("program-clinic-summary")).toContainText(
+    "4 available clinic",
+  );
   await page.locator("#register-clinic").click();
-  await page.getByRole("option", { name: /Winter \(January 2026\)/ }).click();
+  await page.getByRole("option", { name: /Week 1/ }).click();
   await page.getByRole("button", { name: "Register" }).click();
 
-  await expect(page.getByTestId("parent-clinic-registration")).toContainText(
-    "Maya Rivera is registered for Winter (January 2026)",
+  await expect(page.getByTestId("parent-program-registration")).toContainText(
+    "Maya Rivera is registered for Week 1",
   );
   await expect(page.getByTestId("parent-children-overview")).toContainText(
-    "Winter (January 2026)",
+    "Summer Camp 2026",
   );
+  await expect(page.getByTestId("parent-children-overview")).toContainText(
+    "Week 1",
+  );
+  await expect(page.getByTestId("active-programs")).toContainText(
+    "Summer Camp 2026",
+  );
+  await expect(page.getByTestId("active-programs")).toContainText(
+    "Maya Rivera",
+  );
+  await expect(page.getByTestId("active-programs")).toContainText("pending");
 
   await page.locator("#history-child").click();
   await page.getByRole("option", { name: "Maya Rivera" }).click();

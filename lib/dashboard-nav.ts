@@ -25,7 +25,7 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
   {
     id: "registration",
     label: "Registration",
-    description: "Season overview, greetings, and registration insights.",
+    description: "Program overview, greetings, and registration insights.",
     icon: ClipboardList,
   },
   {
