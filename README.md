@@ -8,6 +8,6 @@ First, run the development server:
 
 ```bash
 npm run dev
-
+```
 
 ![Shifty player registration](images/shifty-programs.png)
