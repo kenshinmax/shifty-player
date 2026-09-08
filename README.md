@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shifty Player management platform
+
+Great teams need a flexible team management solution that provides a simple way to manage programs, clinics and training for youth sports.  Connect parents, players and coaches in one place.
 
 ## Getting Started
 
@@ -6,12 +8,6 @@ First, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+
 
 ![Shifty player registration](images/shifty-programs.png)
