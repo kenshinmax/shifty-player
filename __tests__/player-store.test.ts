@@ -1,21 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { sampleData } from "@/lib/sample-data";
 import {
+  addProgram,
   addChildForParent,
   addPlayer,
   addSession,
+  completePaidClinicRegistration,
   deletePlayer,
   deleteSession,
   filterSessionsByYearMonth,
   getChildrenForParent,
   getVisiblePlayers,
   registerChildForClinic,
+  removePlayerFromProgram,
   setClinicAvailable,
   setProgramOpen,
   updatePlayer,
   updateSession,
   validateChildInput,
+  validateClinicRegistration,
   validatePlayerInput,
+  validateProgramInput,
 } from "@/lib/player-store";
 
 const winterClinic = sampleData.sessions.find(
@@ -52,6 +57,7 @@ describe("player-store", () => {
           month: 1,
           status: "trending" as const,
           available: true,
+          capacity: 50,
         },
         {
           id: "s2",
@@ -60,6 +66,7 @@ describe("player-store", () => {
           month: 2,
           status: "in-progress" as const,
           available: true,
+          capacity: 50,
         },
         {
           id: "s3",
@@ -68,6 +75,7 @@ describe("player-store", () => {
           month: 12,
           status: "completed" as const,
           available: false,
+          capacity: 50,
         },
       ],
       players: [],
@@ -244,6 +252,70 @@ describe("player-store", () => {
     expect("error" in week5Registered).toBe(false);
   });
 
+  it("only marks clinic enrollment paid after payment completion", () => {
+    const maya = sampleData.players.find(
+      (player) => player.name === "Maya Rivera",
+    )!;
+    const week1 = sampleData.sessions.find(
+      (session) => session.label === "Week 1",
+    )!;
+
+    expect(
+      validateClinicRegistration(
+        sampleData,
+        maya.id,
+        summerProgram.id,
+        week1.id,
+      ),
+    ).toBeNull();
+    expect(maya.sessionIds).not.toContain(week1.id);
+
+    const paid = completePaidClinicRegistration(
+      sampleData,
+      maya.id,
+      summerProgram.id,
+      week1.id,
+      "2026-07-01T12:00:00.000Z",
+    );
+    expect("error" in paid).toBe(false);
+    if ("error" in paid) return;
+
+    const updated = paid.players.find((player) => player.id === maya.id);
+    expect(updated?.sessionIds).toContain(week1.id);
+    expect(updated?.programIds).toContain(summerProgram.id);
+    expect(updated?.paymentLinkSentAt).toBe("2026-07-01T12:00:00.000Z");
+  });
+
+  it("blocks registration when a clinic has no remaining spots", () => {
+    const maya = sampleData.players.find(
+      (player) => player.name === "Maya Rivera",
+    )!;
+    const week1 = sampleData.sessions.find(
+      (session) => session.label === "Week 1",
+    )!;
+    const fullClinic = { ...week1, capacity: 1 };
+    const occupied: typeof sampleData = {
+      ...sampleData,
+      sessions: sampleData.sessions.map((session) =>
+        session.id === week1.id ? fullClinic : session,
+      ),
+      players: sampleData.players.map((player) =>
+        player.id === "player-1"
+          ? { ...player, sessionIds: [...player.sessionIds, week1.id] }
+          : player,
+      ),
+    };
+
+    expect(
+      validateClinicRegistration(
+        occupied,
+        maya.id,
+        summerProgram.id,
+        week1.id,
+      ),
+    ).toBe("This clinic has no available spots.");
+  });
+
   it("adds a child for a parent account", () => {
     const next = addChildForParent(sampleData, "user-1", "user@demo.com", {
       name: "Nova Rivera",
@@ -261,5 +333,65 @@ describe("player-store", () => {
     expect(validateChildInput({ name: "", grade: "3", level: "beginner" })).toBe(
       "Name is required.",
     );
+  });
+
+  it("creates a program with a starting clinic and roster removal", () => {
+    expect(
+      validateProgramInput({
+        name: "",
+        description: "Demo",
+        startDate: "2027-03-01",
+        endDate: "2027-03-31",
+        open: true,
+        spots: 50,
+      }),
+    ).toBe("Program name is required.");
+
+    const created = addProgram(sampleData, {
+      name: "Spring Skills 2027",
+      description: "Spring training for rising players.",
+      startDate: "2027-03-01",
+      endDate: "2027-03-31",
+      open: true,
+      spots: 40,
+    });
+    expect("error" in created).toBe(false);
+    if ("error" in created) return;
+
+    const program = created.programs[0];
+    expect(program).toMatchObject({
+      name: "Spring Skills 2027",
+      description: "Spring training for rising players.",
+      open: true,
+      spots: 40,
+      startDate: "2027-03-01",
+      endDate: "2027-03-31",
+      startMonth: 3,
+      endMonth: 3,
+      year: 2027,
+    });
+    const clinic = created.sessions.find(
+      (session) => session.programId === program.id,
+    );
+    expect(clinic).toMatchObject({
+      available: true,
+      capacity: 40,
+      month: 3,
+      year: 2027,
+    });
+
+    const withPlayer = addPlayer(created, {
+      name: "Roster Player",
+      email: "roster@example.com",
+      grade: "6",
+      level: "beginner",
+      programIds: [program.id],
+      sessionIds: [clinic!.id],
+    });
+    const player = withPlayer.players.at(-1)!;
+    const removed = removePlayerFromProgram(withPlayer, player.id, program.id);
+    const updated = removed.players.find((entry) => entry.id === player.id);
+    expect(updated?.programIds).not.toContain(program.id);
+    expect(updated?.sessionIds).not.toContain(clinic!.id);
   });
 });

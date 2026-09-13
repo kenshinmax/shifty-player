@@ -10,7 +10,7 @@ import {
 export type DashboardSection =
   | "registration"
   | "financials"
-  | "schedule"
+  | "programs"
   | "communications"
   | "rosters";
 
@@ -35,9 +35,9 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
     icon: Wallet,
   },
   {
-    id: "schedule",
-    label: "Schedule",
-    description: "Sessions, dates, and program status.",
+    id: "programs",
+    label: "Programs",
+    description: "Programs, clinics, availability, and program rosters.",
     icon: CalendarDays,
   },
   {

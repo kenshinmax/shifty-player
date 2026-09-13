@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,8 +26,10 @@ import {
   formatProgramTimeframe,
   getAvailableClinicsForProgram,
   getOpenPrograms,
+  getRemainingClinicSpots,
 } from "@/lib/programs";
 import { getChildrenForParent } from "@/lib/player-store";
+import { emitMetricsEvent } from "@/lib/metrics-client";
 import { LEVELS, type Level } from "@/lib/types";
 
 type ParentProgramRegistrationProps = {
@@ -36,8 +39,9 @@ type ParentProgramRegistrationProps = {
 export function ParentProgramRegistration({
   onRegistered,
 }: ParentProgramRegistrationProps) {
+  const router = useRouter();
   const { user } = useAuth();
-  const { state, addChild, registerForClinic } = useRegistration();
+  const { state, addChild, validateRegistration } = useRegistration();
 
   const children = useMemo(
     () => (user ? getChildrenForParent(state.players, user.id) : []),
@@ -59,16 +63,12 @@ export function ParentProgramRegistration({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const selectedChild = children.find((child) => child.id === childId);
   const selectedProgram = openPrograms.find(
     (program) => program.id === programId,
   );
   const availableClinics = programId
-    ? getAvailableClinicsForProgram(state.sessions, programId)
+    ? getAvailableClinicsForProgram(state.sessions, programId, state.players)
     : [];
-  const selectedClinic = availableClinics.find(
-    (clinic) => clinic.id === clinicId,
-  );
 
   const handleRegister = (event: React.FormEvent) => {
     event.preventDefault();
@@ -88,22 +88,15 @@ export function ParentProgramRegistration({
       return;
     }
 
-    const result = registerForClinic(childId, programId, clinicId);
+    const result = validateRegistration(childId, programId, clinicId);
     if (result.error) {
       setError(result.error);
       return;
     }
 
-    const childName = selectedChild?.name ?? "Your child";
-    const programName = selectedProgram?.name ?? "the program";
-    const clinicName = selectedClinic
-      ? formatClinicLabel(selectedClinic)
-      : "the clinic";
-    setSuccess(
-      `${childName} is registered for ${clinicName} in ${programName}.`,
-    );
-    setClinicId(undefined);
     onRegistered?.();
+    emitMetricsEvent("registration_started");
+    router.push(`/player/registration/${childId}/${clinicId}`);
   };
 
   const handleAddChild = (event: React.FormEvent) => {
@@ -267,7 +260,9 @@ export function ParentProgramRegistration({
                       value={clinic.id}
                       className={selectItemClass}
                     >
-                      {formatClinicLabel(clinic)}
+                      {formatClinicLabel(clinic)} ·{" "}
+                      {getRemainingClinicSpots(state.players, clinic)} spots
+                      left
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -291,7 +286,7 @@ export function ParentProgramRegistration({
 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" size="lg">
-              Register
+              Continue to payment
             </Button>
             <Button
               type="button"

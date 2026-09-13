@@ -3,10 +3,13 @@ import {
   formatProgramTimeframe,
   getActiveProgramsForPlayer,
   getAvailableClinicsForProgram,
+  getClinicCapacity,
   getClinicsForProgram,
   getOpenPrograms,
+  getRemainingClinicSpots,
 } from "@/lib/programs";
 import { sampleData } from "@/lib/sample-data";
+import { DEFAULT_CLINIC_CAPACITY } from "@/lib/types";
 
 describe("programs", () => {
   it("returns only admin-open programs", () => {
@@ -28,6 +31,7 @@ describe("programs", () => {
     const available = getAvailableClinicsForProgram(
       sampleData.sessions,
       summer.id,
+      sampleData.players,
     );
     expect(clinics).toHaveLength(6);
     expect(available).toHaveLength(4);
@@ -37,7 +41,19 @@ describe("programs", () => {
       "Week 3",
       "Week 4",
     ]);
-    expect(formatProgramTimeframe(summer)).toBe("July – August 2026");
+    expect(formatProgramTimeframe(summer)).toBe(
+      "July 1, 2026 – August 15, 2026",
+    );
+  });
+
+  it("tracks remaining spots against clinic capacity (default 50)", () => {
+    const winter = sampleData.sessions.find(
+      (session) => session.id === "session-2026-01",
+    )!;
+    expect(getClinicCapacity(winter)).toBe(DEFAULT_CLINIC_CAPACITY);
+    expect(getRemainingClinicSpots(sampleData.players, winter)).toBe(
+      DEFAULT_CLINIC_CAPACITY - 10,
+    );
   });
 
   it("builds active program rows with enrollment status", () => {
@@ -48,16 +64,19 @@ describe("programs", () => {
       (player) => player.name === "Maya Rivera",
     )!;
 
-    expect(getActiveProgramsForPlayer(lucas, sampleData.programs)).toEqual([
+    expect(getActiveProgramsForPlayer(lucas, sampleData.programs, sampleData.sessions)).toEqual([
       {
-        id: "player-child-2:program-holiday-2025",
-        date: "December 2025",
+        id: "player-child-2:program-holiday-2025:session-2025-12",
+        date: "December 1, 2025 – December 31, 2025",
         playerName: "Lucas Rivera",
         programName: "Holiday 2025",
+        clinicName: "Holiday (December 2025)",
         location: "TBD",
         status: "enrolled",
       },
     ]);
-    expect(getActiveProgramsForPlayer(maya, sampleData.programs)).toEqual([]);
+    expect(
+      getActiveProgramsForPlayer(maya, sampleData.programs, sampleData.sessions),
+    ).toEqual([]);
   });
 });

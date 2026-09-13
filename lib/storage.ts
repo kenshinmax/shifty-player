@@ -1,5 +1,5 @@
 import { sampleData } from "./sample-data";
-import type { AppState } from "./types";
+import { DEFAULT_CLINIC_CAPACITY, type AppState, type Session } from "./types";
 
 export const REGISTRATION_STORAGE_KEY = "shifty-player-registration";
 export const AUTH_USER_STORAGE_KEY = "shifty-player-auth-user";
@@ -16,6 +16,30 @@ function canUseStorage(): boolean {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
 }
 
+function normalizeSession(session: Session): Session {
+  return {
+    ...session,
+    capacity:
+      typeof session.capacity === "number" && session.capacity > 0
+        ? session.capacity
+        : DEFAULT_CLINIC_CAPACITY,
+  };
+}
+
+export function normalizeRegistrationState(state: AppState): AppState {
+  return {
+    ...state,
+    programs: state.programs.map((program) => ({
+      ...program,
+      spots:
+        typeof program.spots === "number" && program.spots > 0
+          ? program.spots
+          : DEFAULT_CLINIC_CAPACITY,
+    })),
+    sessions: state.sessions.map(normalizeSession),
+  };
+}
+
 function isAppState(value: unknown): value is AppState {
   if (!value || typeof value !== "object") return false;
   const candidate = value as AppState;
@@ -26,13 +50,23 @@ function isAppState(value: unknown): value is AppState {
   );
 }
 
+export function parseRegistrationState(raw: string): AppState | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isAppState(parsed)
+      ? normalizeRegistrationState(parsed)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function loadRegistrationState(): AppState {
   if (!canUseStorage()) return sampleData;
   try {
     const raw = localStorage.getItem(REGISTRATION_STORAGE_KEY);
     if (!raw) return sampleData;
-    const parsed: unknown = JSON.parse(raw);
-    return isAppState(parsed) ? parsed : sampleData;
+    return parseRegistrationState(raw) ?? sampleData;
   } catch {
     return sampleData;
   }

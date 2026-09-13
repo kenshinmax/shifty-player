@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Menu, UserPlus, X } from "lucide-react";
 import { AdminScheduleAvailability } from "@/components/admin-schedule-availability";
 import { useAuth } from "@/components/auth-provider";
+import { FinancialsPlayersTable } from "@/components/financials-players-table";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { PlayersRosterGrid } from "@/components/players-roster-grid";
-import { PlayersTable } from "@/components/players-table";
 import { RegistrationInsights } from "@/components/registration-insights";
 import { useRegistration } from "@/components/registration-provider";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,7 @@ export function AdminDashboard() {
   const { user, canViewDashboard, canEdit } = useAuth();
   const {
     state,
+    syncFromStorage,
     createPlayer,
     editPlayer,
     removePlayer,
@@ -113,6 +114,10 @@ export function AdminDashboard() {
   };
 
   const selectSection = (section: DashboardSection) => {
+    if (section === "financials") {
+      // Pull the latest enrollments/payments before rendering financials.
+      syncFromStorage();
+    }
     setActiveSection(section);
     setMobileMenuOpen(false);
   };
@@ -324,20 +329,17 @@ export function AdminDashboard() {
                   </p>
                 </div>
               </div>
-              <PlayersTable
+              <FinancialsPlayersTable
                 players={state.players}
                 sessions={state.sessions}
-                canEdit={false}
-                canSendPayment
-                onEdit={openEditPlayer}
-                onDelete={removePlayer}
+                programs={state.programs}
                 onSendPaymentLink={sendPaymentLink}
               />
             </section>
           ) : null}
 
-          {activeSection === "schedule" ? (
-            <section className="space-y-4" data-testid="dashboard-schedule">
+          {activeSection === "programs" ? (
+            <section className="space-y-4" data-testid="dashboard-programs">
               <AdminScheduleAvailability />
             </section>
           ) : null}

@@ -1,0 +1,36 @@
+# Example prometheus.yml for Docker Compose Prometheus on the same machine
+# as `npm run dev`. Mount this file into the container, e.g.:
+#
+#   services:
+#     prometheus:
+#       image: prom/prometheus:v2.55.0
+#       ports:
+#         - "9090:9090"
+#       volumes:
+#         - ./observability/docker-compose-prometheus.yml:/etc/prometheus/prometheus.yml:ro
+#       extra_hosts:
+#         - "host.docker.internal:host-gateway"
+#       command:
+#         - --config.file=/etc/prometheus/prometheus.yml
+#         - --web.enable-lifecycle
+#
+# Then: docker compose up -d
+# Targets UI: http://localhost:9090/targets
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: shifty-player
+    metrics_path: /api/metrics
+    scheme: http
+    static_configs:
+      - targets:
+          - host.docker.internal:3000
+        labels:
+          app: shifty-player
+          env: local

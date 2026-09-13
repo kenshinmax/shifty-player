@@ -1,10 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { sampleData } from "./sample-data";
-import { loadRegistrationState, saveRegistrationState } from "./storage";
-import type { AppState, Level, Player, Session, SessionStatus } from "./types";
+import {
+  REGISTRATION_STORAGE_KEY,
+  loadRegistrationState,
+  parseRegistrationState,
+  saveRegistrationState,
+} from "./storage";
+import {
+  DEFAULT_CLINIC_CAPACITY,
+  type AppState,
+  type Level,
+  type Player,
+  type Session,
+  type SessionStatus,
+} from "./types";
 import { sessionKey } from "./format";
+import { getClinicCapacity, getRemainingClinicSpots } from "./programs";
 
 export function filterSessionsByYearMonth(
   sessions: Session[],
@@ -37,32 +50,59 @@ export function getChildrenForParent(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Validates that a child can enroll in a clinic (does not mutate state). */
+export function validateClinicRegistration(
+  state: AppState,
+  playerId: string,
+  programId: string,
+  clinicId: string,
+): string | null {
+  const player = state.players.find((entry) => entry.id === playerId);
+  if (!player) return "Player not found.";
+
+  const program = state.programs.find((entry) => entry.id === programId);
+  if (!program) return "Program not found.";
+  if (!program.open) {
+    return "This program is not open for registration.";
+  }
+
+  const clinic = state.sessions.find((entry) => entry.id === clinicId);
+  if (!clinic) return "Clinic not found.";
+  if (clinic.programId !== programId) {
+    return "That clinic is not part of the selected program.";
+  }
+  if (!clinic.available) {
+    return "This clinic is not available for registration.";
+  }
+  if (player.sessionIds.includes(clinicId)) {
+    return "This child is already registered for that clinic.";
+  }
+  if (getRemainingClinicSpots(state.players, clinic) <= 0) {
+    return "This clinic has no available spots.";
+  }
+
+  return null;
+}
+
+/**
+ * Enrolls a child in a clinic. Prefer completePaidClinicRegistration so
+ * enrollment only happens after payment succeeds.
+ */
 export function registerChildForClinic(
   state: AppState,
   playerId: string,
   programId: string,
   clinicId: string,
 ): AppState | { error: string } {
-  const player = state.players.find((entry) => entry.id === playerId);
-  if (!player) return { error: "Player not found." };
+  const error = validateClinicRegistration(
+    state,
+    playerId,
+    programId,
+    clinicId,
+  );
+  if (error) return { error };
 
-  const program = state.programs.find((entry) => entry.id === programId);
-  if (!program) return { error: "Program not found." };
-  if (!program.open) {
-    return { error: "This program is not open for registration." };
-  }
-
-  const clinic = state.sessions.find((entry) => entry.id === clinicId);
-  if (!clinic) return { error: "Clinic not found." };
-  if (clinic.programId !== programId) {
-    return { error: "That clinic is not part of the selected program." };
-  }
-  if (!clinic.available) {
-    return { error: "This clinic is not available for registration." };
-  }
-  if (player.sessionIds.includes(clinicId)) {
-    return { error: "This child is already registered for that clinic." };
-  }
+  const player = state.players.find((entry) => entry.id === playerId)!;
 
   return updatePlayer(state, playerId, {
     ...player,
@@ -71,6 +111,27 @@ export function registerChildForClinic(
       : [...player.programIds, programId],
     sessionIds: [...player.sessionIds, clinicId],
   });
+}
+
+/**
+ * Confirms payment and enrolls the child. In production this runs only after
+ * Stripe reports a successful PaymentIntent (typically via webhook).
+ */
+export function completePaidClinicRegistration(
+  state: AppState,
+  playerId: string,
+  programId: string,
+  clinicId: string,
+  paidAt: string = new Date().toISOString(),
+): AppState | { error: string } {
+  const registered = registerChildForClinic(
+    state,
+    playerId,
+    programId,
+    clinicId,
+  );
+  if ("error" in registered) return registered;
+  return markPaymentLinkSent(registered, playerId, paidAt);
 }
 
 export function setProgramOpen(
@@ -83,6 +144,126 @@ export function setProgramOpen(
     programs: state.programs.map((program) =>
       program.id === programId ? { ...program, open } : program,
     ),
+  };
+}
+
+export type ProgramInput = {
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  open: boolean;
+  spots: number;
+  location?: string;
+};
+
+function parseIsoDateParts(iso: string): {
+  year: number;
+  month: number;
+  day: number;
+} | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (
+    !Number.isInteger(year) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+export function validateProgramInput(input: ProgramInput): string | null {
+  if (!input.name.trim()) return "Program name is required.";
+  if (!input.description.trim()) return "Description is required.";
+  const start = parseIsoDateParts(input.startDate);
+  const end = parseIsoDateParts(input.endDate);
+  if (!start) return "Enter a valid start date.";
+  if (!end) return "Enter a valid end date.";
+  if (
+    input.endDate.trim() < input.startDate.trim()
+  ) {
+    return "End date must be on or after the start date.";
+  }
+  if (!Number.isInteger(input.spots) || input.spots < 1) {
+    return "Spots must be at least 1.";
+  }
+  return null;
+}
+
+export function addProgram(
+  state: AppState,
+  input: ProgramInput,
+): AppState | { error: string } {
+  const error = validateProgramInput(input);
+  if (error) return { error };
+
+  const start = parseIsoDateParts(input.startDate)!;
+  const end = parseIsoDateParts(input.endDate)!;
+  const id = `program-${crypto.randomUUID()}`;
+  const spots = input.spots > 0 ? input.spots : DEFAULT_CLINIC_CAPACITY;
+
+  const program = {
+    id,
+    name: input.name.trim(),
+    description: input.description.trim(),
+    year: start.year,
+    status: "trending" as const,
+    open: input.open,
+    startMonth: start.month,
+    endMonth: end.month,
+    startDate: input.startDate.trim(),
+    endDate: input.endDate.trim(),
+    location: input.location?.trim() || undefined,
+    spots,
+  };
+
+  const clinicId = `session-${crypto.randomUUID()}`;
+  const clinic = {
+    id: clinicId,
+    programId: id,
+    year: start.year,
+    month: start.month,
+    label: input.name.trim(),
+    status: "trending" as const,
+    available: input.open,
+    capacity: spots,
+  };
+
+  return {
+    ...state,
+    programs: [program, ...state.programs],
+    sessions: [...state.sessions, clinic],
+  };
+}
+
+export function removePlayerFromProgram(
+  state: AppState,
+  playerId: string,
+  programId: string,
+): AppState {
+  const clinicIds = new Set(
+    state.sessions
+      .filter((session) => session.programId === programId)
+      .map((session) => session.id),
+  );
+
+  return {
+    ...state,
+    players: state.players.map((player) => {
+      if (player.id !== playerId) return player;
+      return {
+        ...player,
+        programIds: player.programIds.filter((id) => id !== programId),
+        sessionIds: player.sessionIds.filter((id) => !clinicIds.has(id)),
+      };
+    }),
   };
 }
 
@@ -156,7 +337,10 @@ export function deletePlayer(state: AppState, playerId: string): AppState {
 
 export function addSession(
   state: AppState,
-  session: Omit<Session, "id" | "available"> & { available?: boolean },
+  session: Omit<Session, "id" | "available" | "capacity"> & {
+    available?: boolean;
+    capacity?: number;
+  },
 ): AppState | { error: string } {
   if (
     findDuplicateSession(
@@ -177,6 +361,10 @@ export function addSession(
       {
         ...session,
         available: session.available ?? true,
+        capacity:
+          session.capacity && session.capacity > 0
+            ? session.capacity
+            : DEFAULT_CLINIC_CAPACITY,
         id,
       },
     ],
@@ -186,7 +374,10 @@ export function addSession(
 export function updateSession(
   state: AppState,
   sessionId: string,
-  updates: Omit<Session, "id" | "available"> & { available?: boolean },
+  updates: Omit<Session, "id" | "available" | "capacity"> & {
+    available?: boolean;
+    capacity?: number;
+  },
 ): AppState | { error: string } {
   if (
     findDuplicateSession(
@@ -208,6 +399,10 @@ export function updateSession(
             ...session,
             ...updates,
             available: updates.available ?? session.available,
+            capacity:
+              updates.capacity && updates.capacity > 0
+                ? updates.capacity
+                : getClinicCapacity(session),
             id: sessionId,
           }
         : session,
@@ -331,17 +526,64 @@ export function validateSessionInput(input: SessionInput): string | null {
 export function usePlayerStore(initialState: AppState = sampleData) {
   const [state, setState] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
+  const skipSaveRef = useRef(true);
+
+  const persistState = useCallback((next: AppState) => {
+    saveRegistrationState(next);
+  }, []);
+
+  const replaceStateFromStorage = useCallback(() => {
+    skipSaveRef.current = true;
+    setState(loadRegistrationState());
+  }, []);
 
   useEffect(() => {
+    skipSaveRef.current = true;
     setState(loadRegistrationState());
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return;
+    }
     saveRegistrationState(state);
   }, [state, hydrated]);
 
+  // Keep admin/parent views in sync when another tab updates registration data.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== REGISTRATION_STORAGE_KEY || event.newValue == null) {
+        return;
+      }
+      const parsed = parseRegistrationState(event.newValue);
+      if (!parsed) return;
+      skipSaveRef.current = true;
+      setState(parsed);
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const commitState = useCallback(
+    (updater: (current: AppState) => AppState) => {
+      setState((current) => {
+        const next = updater(current);
+        if (next !== current) {
+          persistState(next);
+        }
+        return next;
+      });
+    },
+    [persistState],
+  );
+
+  const syncFromStorage = useCallback(() => {
+    replaceStateFromStorage();
+  }, [replaceStateFromStorage]);
   const createPlayer = useCallback((input: PlayerInput) => {
     const error = validatePlayerInput(input);
     if (error) return { error };
@@ -387,8 +629,8 @@ export function usePlayerStore(initialState: AppState = sampleData) {
   }, []);
 
   const sendPaymentLink = useCallback((playerId: string) => {
-    setState((current) => markPaymentLinkSent(current, playerId));
-  }, []);
+    commitState((current) => markPaymentLinkSent(current, playerId));
+  }, [commitState]);
 
   const createSession = useCallback((input: SessionInput) => {
     const error = validateSessionInput(input);
@@ -475,6 +717,15 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     [],
   );
 
+  const validateRegistration = useCallback(
+    (playerId: string, programId: string, clinicId: string) => {
+      return {
+        error: validateClinicRegistration(state, playerId, programId, clinicId),
+      };
+    },
+    [state],
+  );
+
   const registerForClinic = useCallback(
     (playerId: string, programId: string, clinicId: string) => {
       let registerError: string | undefined;
@@ -496,9 +747,66 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     [],
   );
 
+  const completePaidRegistration = useCallback(
+    (playerId: string, programId: string, clinicId: string) => {
+      let registerError: string | undefined;
+      commitState((current) => {
+        const player = current.players.find((entry) => entry.id === playerId);
+        const alreadyEnrolled =
+          Boolean(player?.sessionIds.includes(clinicId)) &&
+          Boolean(player?.paymentLinkSentAt);
+
+        if (alreadyEnrolled) {
+          // Idempotent success for Strict Mode double-updates / retries.
+          return current;
+        }
+
+        const result = completePaidClinicRegistration(
+          current,
+          playerId,
+          programId,
+          clinicId,
+        );
+        if ("error" in result) {
+          registerError = result.error;
+          return current;
+        }
+        return result;
+      });
+      return registerError ? { error: registerError } : { error: null };
+    },
+    [commitState],
+  );
+
   const setProgramRegistrationOpen = useCallback(
     (programId: string, open: boolean) => {
       setState((current) => setProgramOpen(current, programId, open));
+    },
+    [],
+  );
+
+  const createProgram = useCallback((input: ProgramInput) => {
+    let createError: string | undefined;
+    let programId: string | null = null;
+    setState((current) => {
+      const result = addProgram(current, input);
+      if ("error" in result) {
+        createError = result.error;
+        return current;
+      }
+      programId = result.programs[0]?.id ?? null;
+      return result;
+    });
+    return createError
+      ? { error: createError, programId: null }
+      : { error: null, programId };
+  }, []);
+
+  const removeFromProgram = useCallback(
+    (playerId: string, programId: string) => {
+      setState((current) =>
+        removePlayerFromProgram(current, playerId, programId),
+      );
     },
     [],
   );
@@ -512,6 +820,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
 
   return {
     state,
+    syncFromStorage,
     createPlayer,
     editPlayer,
     removePlayer,
@@ -520,7 +829,11 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     editSession,
     removeSession,
     addChild,
+    validateRegistration,
     registerForClinic,
+    completePaidRegistration,
+    createProgram,
+    removeFromProgram,
     setProgramRegistrationOpen,
     setClinicRegistrationAvailable,
     countPlayersForSession: (sessionId: string) =>

@@ -13,11 +13,12 @@ import {
   getActiveProgramsForPlayers,
   type ActiveProgramStatus,
 } from "@/lib/programs";
-import type { Player, Program } from "@/lib/types";
+import type { Player, Program, Session } from "@/lib/types";
 
 type ActiveProgramsSectionProps = {
   childrenPlayers: Player[];
   programs: Program[];
+  sessions: Session[];
 };
 
 function statusBadgeVariant(
@@ -36,10 +37,12 @@ function statusBadgeVariant(
 export function ActiveProgramsSection({
   childrenPlayers,
   programs,
+  sessions,
 }: ActiveProgramsSectionProps) {
   const activePrograms = getActiveProgramsForPlayers(
     childrenPlayers,
     programs,
+    sessions,
   );
 
   return (
@@ -47,7 +50,7 @@ export function ActiveProgramsSection({
       <div>
         <h2 className="font-heading text-xl font-medium">Active programs</h2>
         <p className="text-sm text-muted-foreground">
-          Current program registrations for all of your children.
+          Current program and clinic registrations for all of your children.
         </p>
       </div>
 
@@ -57,6 +60,7 @@ export function ActiveProgramsSection({
             <TableHead>Date</TableHead>
             <TableHead>Player</TableHead>
             <TableHead>Program</TableHead>
+            <TableHead>Clinic</TableHead>
             <TableHead>Location</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
@@ -65,7 +69,7 @@ export function ActiveProgramsSection({
           {activePrograms.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={6}
                 className="text-center text-muted-foreground"
               >
                 No active programs yet. Register a child for an open program to
@@ -78,6 +82,7 @@ export function ActiveProgramsSection({
                 <TableCell className="font-medium">{program.date}</TableCell>
                 <TableCell>{program.playerName}</TableCell>
                 <TableCell>{program.programName}</TableCell>
+                <TableCell>{program.clinicName}</TableCell>
                 <TableCell>{program.location}</TableCell>
                 <TableCell>
                   <Badge

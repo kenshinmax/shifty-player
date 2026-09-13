@@ -109,6 +109,7 @@ export default function PlayerDashboardPage() {
       <ActiveProgramsSection
         childrenPlayers={children}
         programs={state.programs}
+        sessions={state.sessions}
       />
 
       <section className="space-y-4">

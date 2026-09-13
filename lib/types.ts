@@ -6,6 +6,8 @@ export type SessionStatus = "trending" | "in-progress" | "completed";
 export type Program = {
   id: string;
   name: string;
+  /** Short summary shown to admins and on program detail. */
+  description?: string;
   year: number;
   status: SessionStatus;
   /** Admin-controlled: when true, parents can register for this program. */
@@ -14,7 +16,13 @@ export type Program = {
   startMonth: number;
   /** Inclusive end month (1–12). */
   endMonth: number;
+  /** ISO date (YYYY-MM-DD) when the program begins. */
+  startDate?: string;
+  /** ISO date (YYYY-MM-DD) when the program ends. */
+  endDate?: string;
   location?: string;
+  /** Default / overall player spots for clinics in this program. */
+  spots?: number;
 };
 
 /**
@@ -32,7 +40,12 @@ export type Session = {
   status: SessionStatus;
   /** Admin-controlled: when true, clinic is available within an open program. */
   available: boolean;
+  /** Max player spots for this clinic. */
+  capacity: number;
 };
+
+/** Default clinic player capacity when not specified. */
+export const DEFAULT_CLINIC_CAPACITY = 50;
 
 export type Player = {
   id: string;

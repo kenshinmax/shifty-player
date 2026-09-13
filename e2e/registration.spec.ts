@@ -92,7 +92,7 @@ test("admin dashboard players and payment links", async ({ page }) => {
   await expect(page.getByTestId("dashboard-sidebar")).toBeVisible();
   await expect(page.getByTestId("dashboard-nav-registration")).toBeVisible();
   await expect(page.getByTestId("dashboard-nav-financials")).toBeVisible();
-  await expect(page.getByTestId("dashboard-nav-schedule")).toBeVisible();
+  await expect(page.getByTestId("dashboard-nav-programs")).toBeVisible();
   await expect(page.getByTestId("dashboard-nav-communications")).toBeVisible();
   await expect(page.getByTestId("dashboard-nav-rosters")).toBeVisible();
   await expect(page.getByTestId("registration-greeting")).toContainText(
@@ -126,6 +126,34 @@ test("admin dashboard players and payment links", async ({ page }) => {
     "June",
   );
 
+  await page.getByTestId("dashboard-nav-financials").click();
+  await expect(page.getByTestId("financials-players-table")).toBeVisible();
+  await expect(page.getByTestId("financials-status-tabs")).toBeVisible();
+  await expect(page.getByTestId("financials-player-row-player-child-2")).toContainText(
+    "Lucas Rivera",
+  );
+  await expect(page.getByTestId("financials-player-row-player-child-2")).toContainText(
+    "New player",
+  );
+  await expect(page.getByTestId("financials-player-row-player-child-2")).toContainText(
+    "$460.00",
+  );
+  await expect(page.getByTestId("financials-player-row-player-child-2")).toContainText(
+    "Enrolled / Paid",
+  );
+
+  await page.getByTestId("financials-tab-paid").click();
+  await expect(page.getByTestId("financials-player-row-player-child-2")).toBeVisible();
+  await expect(page.getByTestId("financials-player-row-player-1")).toHaveCount(0);
+
+  await page.getByTestId("financials-tab-unpaid").click();
+  await expect(page.getByTestId("financials-player-row-player-1")).toBeVisible();
+  await expect(page.getByTestId("financials-player-row-player-child-2")).toHaveCount(0);
+
+  await page.getByTestId("financials-tab-all").click();
+  await expect(page.getByTestId("financials-player-row-player-child-2")).toBeVisible();
+  await expect(page.getByTestId("financials-player-row-player-1")).toBeVisible();
+
   await page.getByTestId("dashboard-nav-rosters").click();
   await expect(page.getByRole("button", { name: "Add Player" })).toBeVisible();
   await expect(page.getByTestId("players-roster-grid")).toBeVisible();
@@ -133,11 +161,36 @@ test("admin dashboard players and payment links", async ({ page }) => {
     playersSection(page).getByRole("button", { name: /Actions for/ }),
   ).toHaveCount(12);
 
-  await page.getByTestId("dashboard-nav-schedule").click();
-  await expect(page.getByTestId("dashboard-schedule")).toContainText("Winter");
+  await page.getByTestId("dashboard-nav-programs").click();
+  await expect(page.getByTestId("dashboard-programs")).toContainText("Winter");
   await expect(page.getByTestId("admin-schedule-availability")).toContainText(
     "Program & clinic availability",
   );
+  await expect(page.getByTestId("add-program-link")).toBeVisible();
+  await page.getByTestId("manage-program-program-winter-2026").click();
+  await expect(page).toHaveURL(/\/dashboard\/programs\/program-winter-2026$/);
+  await expect(page.getByTestId("program-detail")).toContainText("Winter 2026");
+  await expect(page.getByTestId("program-roster")).toBeVisible();
+  await page.getByRole("link", { name: "Back" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+
+  await page.getByTestId("dashboard-nav-programs").click();
+  await page.getByTestId("add-program-link").click();
+  await expect(page).toHaveURL(/\/dashboard\/programs\/new$/);
+  await page.locator("#program-name").fill("Admin Spring Camp");
+  await page.locator("#program-description").fill("Admin-created spring program.");
+  await page.locator("#program-start-date").fill("2027-04-01");
+  await page.locator("#program-end-date").fill("2027-04-30");
+  await page.locator("#program-spots").fill("50");
+  await page.getByRole("button", { name: "Create program" }).click();
+  await expect(page.getByTestId("program-detail")).toContainText(
+    "Admin Spring Camp",
+  );
+  await expect(page.getByTestId("program-roster")).toContainText(
+    "No players registered yet.",
+  );
+  await page.getByRole("link", { name: "Back" }).click();
+
   await page.getByTestId("dashboard-nav-rosters").click();
   await expect(playersSection(page)).toBeVisible();
 
@@ -246,11 +299,51 @@ test("parent login lands on dashboard with program registration", async ({
   );
   await page.locator("#register-clinic").click();
   await page.getByRole("option", { name: /Week 1/ }).click();
-  await page.getByRole("button", { name: "Register" }).click();
+  await page.getByRole("button", { name: "Continue to payment" }).click();
 
-  await expect(page.getByTestId("parent-program-registration")).toContainText(
-    "Maya Rivera is registered for Week 1",
+  await expect(page).toHaveURL(
+    /\/player\/registration\/player-child-1\/clinic-summer-2026-w1$/,
   );
+  await expect(page.getByTestId("registration-review")).toBeVisible();
+  await expect(page.getByTestId("registration-player-card")).toContainText(
+    "Maya Rivera",
+  );
+  await expect(page.getByTestId("registration-clinic-card")).toContainText(
+    "Summer Camp 2026",
+  );
+  await expect(page.getByTestId("registration-clinic-card")).toContainText(
+    "Week 1",
+  );
+  await expect(page.getByTestId("registration-payment-form")).toBeVisible();
+  // Without Stripe env keys the app uses the demo card form (CI-safe).
+  await expect(page.getByTestId("registration-payment-form")).toHaveAttribute(
+    "data-payment-mode",
+    "demo",
+  );
+
+  await page.getByRole("link", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/player$/);
+  await expect(page.getByTestId("parent-children-overview")).not.toContainText(
+    "Week 1",
+  );
+
+  await page.locator("#register-child").click();
+  await page.getByRole("option", { name: /Maya Rivera/ }).click();
+  await page.locator("#register-program").click();
+  await page.getByRole("option", { name: "Summer Camp 2026" }).click();
+  await page.locator("#register-clinic").click();
+  await page.getByRole("option", { name: /Week 1/ }).click();
+  await page.getByRole("button", { name: "Continue to payment" }).click();
+
+  // Demo checkout path when STRIPE_SECRET_KEY / publishable key are unset.
+  await page.locator("#cardholder-name").fill("Jordan Rivera");
+  await page.locator("#card-number").fill("4242424242424242");
+  await page.locator("#card-expiry").fill("12 / 30");
+  await page.locator("#card-cvc").fill("123");
+  await page.locator("#billing-zip").fill("06883");
+  await page.getByRole("button", { name: /Pay \$460/ }).click();
+
+  await expect(page).toHaveURL(/\/player$/);
   await expect(page.getByTestId("parent-children-overview")).toContainText(
     "Summer Camp 2026",
   );
@@ -263,7 +356,8 @@ test("parent login lands on dashboard with program registration", async ({
   await expect(page.getByTestId("active-programs")).toContainText(
     "Maya Rivera",
   );
-  await expect(page.getByTestId("active-programs")).toContainText("pending");
+  await expect(page.getByTestId("active-programs")).toContainText("Week 1");
+  await expect(page.getByTestId("active-programs")).toContainText("enrolled");
 
   await page.locator("#history-child").click();
   await page.getByRole("option", { name: "Maya Rivera" }).click();
@@ -274,4 +368,19 @@ test("parent login lands on dashboard with program registration", async ({
   await expect(
     page.getByRole("columnheader", { name: "Games played" }),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await signInAsAdmin(page);
+  await page.getByTestId("dashboard-nav-financials").click();
+  await page.getByTestId("financials-tab-paid").click();
+  await expect(
+    page.getByTestId("financials-player-row-player-child-1"),
+  ).toContainText("Maya Rivera");
+  await expect(
+    page.getByTestId("financials-player-row-player-child-1"),
+  ).toContainText("Enrolled / Paid");
+  await expect(
+    page.getByTestId("financials-player-row-player-child-1"),
+  ).toContainText("$460.00");
 });

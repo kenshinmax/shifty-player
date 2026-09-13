@@ -1,0 +1,23 @@
+# Fragment to merge into your Prometheus ConfigMap / prometheus.yml
+# under scrape_configs: (keep your existing jobs).
+#
+# Target depends on where Prometheus runs:
+# - Prometheus in minikube (pod): host.minikube.internal:3000
+# - Prometheus via Docker Compose on the same Mac as the app:
+#     host.docker.internal:3000
+#
+# After editing the ConfigMap:
+#   kubectl -n <ns> apply -f <your-prometheus-configmap>.yaml
+#   kubectl -n <ns> rollout restart deploy/<prometheus-deploy>
+#   # or: curl -X POST http://localhost:9090/-/reload  (if --web.enable-lifecycle)
+
+- job_name: shifty-player
+  scrape_interval: 15s
+  metrics_path: /api/metrics
+  scheme: http
+  static_configs:
+    - targets:
+        - host.minikube.internal:3000
+      labels:
+        app: shifty-player
+        env: local

@@ -25,6 +25,9 @@ type PlayersRosterGridProps = {
   onEdit: (player: Player) => void;
   onDelete: (playerId: string) => void;
   onSendPaymentLink?: (playerId: string) => void;
+  deleteTitle?: string;
+  deleteDescription?: (player: Player) => string;
+  deleteActionLabel?: string;
 };
 
 function initials(name: string) {
@@ -47,6 +50,9 @@ export function PlayersRosterGrid({
   onEdit,
   onDelete,
   onSendPaymentLink,
+  deleteTitle = "Delete player?",
+  deleteDescription,
+  deleteActionLabel = "Delete",
 }: PlayersRosterGridProps) {
   const [deleteTarget, setDeleteTarget] = useState<Player | null>(null);
   const showMenu = canEdit || canSendPayment;
@@ -151,7 +157,7 @@ export function PlayersRosterGrid({
                                 onClick={() => setDeleteTarget(player)}
                               >
                                 <Trash2 />
-                                Delete
+                                {deleteActionLabel}
                               </DropdownMenuItem>
                             </>
                           ) : null}
@@ -178,10 +184,11 @@ export function PlayersRosterGrid({
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        title="Delete player?"
+        title={deleteTitle}
         description={
           deleteTarget
-            ? `This will permanently remove ${deleteTarget.name} from the registration list.`
+            ? (deleteDescription?.(deleteTarget) ??
+              `This will permanently remove ${deleteTarget.name} from the registration list.`)
             : ""
         }
         onConfirm={() => {
