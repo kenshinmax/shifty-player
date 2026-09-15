@@ -14,18 +14,15 @@ export function buildPaymentLink(player: Player): string {
 }
 
 /**
- * Stripe confirmation model (localStorage MVP):
+ * Stripe confirmation model:
  *
  * 1. Server creates a PaymentIntent with metadata:
  *    { playerId, programId, clinicId, parentUserId, amountCents }
  * 2. Client confirms with Stripe Payment Element (card never hits our servers).
- * 3. Client calls confirm-enrollment; server retrieves the PaymentIntent and
- *    checks status / amount / metadata, then returns { approved: true }.
- * 4. Only then the client calls completePaidClinicRegistration (localStorage).
- * 5. Webhook `payment_intent.succeeded` records metrics idempotently — it cannot
- *    write browser storage.
- *
- * Do not enroll from a forged client “success” without server verify.
+ * 3. Client calls confirm-enrollment; server retrieves the PaymentIntent,
+ *    checks status / amount / metadata, then **enrolls in MongoDB**.
+ * 4. Webhook `payment_intent.succeeded` also enrolls idempotently + metrics.
+ * 5. Client refreshes state from `GET /api/state` (no localStorage enrollment).
  */
 export const STRIPE_ENROLLMENT_SOURCE = "stripe.payment_intent.succeeded";
 

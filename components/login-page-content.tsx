@@ -52,9 +52,9 @@ export function LoginPageContent() {
     );
   }
 
-  const handleLogin = (event: React.FormEvent) => {
+  const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = login(loginEmail, loginPassword);
+    const result = await login(loginEmail, loginPassword);
     if (result.error || !result.user) {
       setLoginError(result.error ?? "Invalid email or password.");
       return;
@@ -63,9 +63,9 @@ export function LoginPageContent() {
     redirectAfterAuth(result.user);
   };
 
-  const handleSignup = (event: React.FormEvent) => {
+  const handleSignup = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = signup({
+    const result = await signup({
       name: signupName,
       email: signupEmail,
       password: signupPassword,

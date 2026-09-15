@@ -5,6 +5,7 @@ import {
   buildPaymentIntentMetadata,
   evaluatePaymentIntentForEnrollment,
 } from "@/lib/stripe";
+import { computeRegistrationTotalCents } from "@/lib/merchandise";
 
 const baseExpected = {
   playerId: "player-1",
@@ -19,30 +20,42 @@ function makeIntent(
     amount: number;
     currency: string;
     metadata: Record<string, string>;
+    cart: { skuId: "tshirt" | "shorts"; size: "AM"; quantity: number }[];
   }> = {},
 ) {
-  const { metadata: metadataOverrides, ...rest } = overrides;
+  const { metadata: metadataOverrides, cart = [], ...rest } = overrides;
+  const meta = buildPaymentIntentMetadata({
+    ...baseExpected,
+    parentUserId: "parent-1",
+    cart,
+  });
   return {
     id: "pi_test_123",
     status: "succeeded",
-    amount: CLINIC_FEE_CENTS,
+    amount: computeRegistrationTotalCents(cart),
     currency: STRIPE_CURRENCY,
     ...rest,
     metadata: {
-      ...buildPaymentIntentMetadata({
-        ...baseExpected,
-        parentUserId: "parent-1",
-      }),
+      ...meta,
       ...metadataOverrides,
     },
   };
 }
 
 describe("evaluatePaymentIntentForEnrollment", () => {
-  it("approves a matching succeeded PaymentIntent", () => {
+  it("approves a matching succeeded PaymentIntent (tuition only)", () => {
     expect(evaluatePaymentIntentForEnrollment(makeIntent(), baseExpected)).toEqual(
-      { approved: true },
+      { approved: true, cart: [] },
     );
+  });
+
+  it("approves tuition plus swag when metadata matches recomputed total", () => {
+    const cart = [{ skuId: "tshirt" as const, size: "AM" as const, quantity: 1 }];
+    const result = evaluatePaymentIntentForEnrollment(
+      makeIntent({ cart }),
+      baseExpected,
+    );
+    expect(result).toEqual({ approved: true, cart });
   });
 
   it("rejects non-succeeded status", () => {
@@ -124,7 +137,7 @@ describe("evaluatePaymentIntentForEnrollment", () => {
 });
 
 describe("buildPaymentIntentMetadata", () => {
-  it("includes fee cents and enrollment ids", () => {
+  it("includes tuition, swag, and total for empty cart", () => {
     expect(
       buildPaymentIntentMetadata({
         playerId: "p1",
@@ -138,6 +151,21 @@ describe("buildPaymentIntentMetadata", () => {
       clinicId: "c1",
       parentUserId: "parent1",
       amountCents: String(CLINIC_FEE_CENTS),
+      tuitionCents: String(CLINIC_FEE_CENTS),
+      swagCents: "0",
+      swagJson: "[]",
     });
+  });
+
+  it("includes swag subtotal when cart has items", () => {
+    const meta = buildPaymentIntentMetadata({
+      playerId: "p1",
+      programId: "prog1",
+      clinicId: "c1",
+      parentUserId: "parent1",
+      cart: [{ skuId: "shorts", size: "AM", quantity: 2 }],
+    });
+    expect(meta.swagCents).toBe("6000");
+    expect(meta.amountCents).toBe(String(CLINIC_FEE_CENTS + 6000));
   });
 });

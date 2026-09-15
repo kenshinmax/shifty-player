@@ -62,6 +62,21 @@ export type Player = {
   paymentLinkSentAt?: string;
   /** Optional profile photo URL for roster cards. */
   avatarUrl?: string;
+  /** Optional team gear purchased with the latest paid clinic enrollment. */
+  merchandiseOrder?: {
+    clinicId: string;
+    items: {
+      skuId: string;
+      name: string;
+      size: string;
+      quantity: number;
+      unitCents: number;
+    }[];
+    tuitionCents: number;
+    swagCents: number;
+    totalCents: number;
+    paidAt: string;
+  };
 };
 
 export type AppState = {

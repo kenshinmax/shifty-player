@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import { buildMerchandiseOrder } from "@/lib/merchandise";
+import {
+  claimProcessedPayment,
+  enrollPaidInDb,
+} from "@/lib/db/registration-repository";
 import {
   approveEnrollmentFromPaymentIntent,
   isStripeConfigured,
@@ -22,8 +27,7 @@ function requireNonEmptyString(value: unknown): string | null {
 }
 
 /**
- * Verifies a PaymentIntent with Stripe before the client enrolls in localStorage.
- * Does not mutate registration state (browser-only for this MVP).
+ * Verifies PaymentIntent with Stripe, then enrolls the player (and swag order) in MongoDB.
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -70,7 +74,24 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ approved: true });
+    const merchandiseOrder = buildMerchandiseOrder(clinicId, result.cart);
+    const enrolled = await enrollPaidInDb(
+      playerId,
+      programId,
+      clinicId,
+      merchandiseOrder.paidAt,
+      merchandiseOrder,
+    );
+    if ("error" in enrolled) {
+      return NextResponse.json(
+        { approved: false, error: enrolled.error },
+        { status: 400 },
+      );
+    }
+
+    await claimProcessedPayment(paymentIntentId);
+
+    return NextResponse.json({ approved: true, state: enrolled.state });
   } catch (error) {
     const message =
       error instanceof Error

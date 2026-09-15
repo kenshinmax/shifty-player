@@ -14,6 +14,20 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ![Shifty player registration](images/shifty-programs.png)
 
+## MongoDB persistence
+
+Registration data (programs, clinics, players) and auth accounts live in **MongoDB** when `MONGODB_URI` is set. Without it, the server uses an **in-memory** store (fine for local/CI; data resets when the process restarts).
+
+1. Create a free cluster in [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
+2. Database Access → create a user; Network Access → allow your IP (or `0.0.0.0/0` for local demos).
+3. Copy [`.env.example`](.env.example) values into `.env.local`:
+   - `MONGODB_URI` — Atlas connection string
+   - `MONGODB_DB` — database name (default `shifty`)
+4. Restart `npm run dev`. The first request seeds sample programs/players and demo users (`user@demo.com` / `admin@demo.com`).
+5. Reset data anytime: `POST /api/admin/seed`
+
+Auth uses httpOnly session cookies (`shifty_session`); passwords are bcrypt-hashed in the `users` collection.
+
 ## Stripe payments (test mode)
 
 Parent clinic checkout uses [Stripe Payment Element](https://docs.stripe.com/payments/payment-element) when keys are configured. Without `STRIPE_SECRET_KEY`, the app keeps a **demo card form** so local/CI Playwright tests keep working.
@@ -30,7 +44,9 @@ Parent clinic checkout uses [Stripe Payment Element](https://docs.stripe.com/pay
    Paste the printed `whsec_…` into `.env.local` as `STRIPE_WEBHOOK_SECRET`.
 4. Pay with test card `4242 4242 4242 4242` (any future expiry, any CVC, any ZIP).
 
-Flow: create PaymentIntent → confirm Payment Element → server `confirm-enrollment` retrieves the PaymentIntent from Stripe → only then the client enrolls in localStorage. The webhook records `payment_succeeded` metrics and is idempotent; it does not write browser storage.
+On the registration payment page, parents can optionally add **team gear** (t-shirt / shorts) to the same checkout. The PaymentIntent amount is tuition (`$460`) plus server-priced swag; the order snapshot is stored on the player as `merchandiseOrder`.
+
+Flow: create PaymentIntent → confirm Payment Element → server `confirm-enrollment` retrieves the PaymentIntent from Stripe **and enrolls in MongoDB**. The webhook also enrolls idempotently and records metrics.
 
 Paid enrollments still increment Prometheus series via `/api/metrics/events` (and the webhook) — see Metrics below.
 

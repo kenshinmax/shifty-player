@@ -99,14 +99,14 @@ export function ParentProgramRegistration({
     router.push(`/player/registration/${childId}/${clinicId}`);
   };
 
-  const handleAddChild = (event: React.FormEvent) => {
+  const handleAddChild = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
     setSuccess(null);
 
     if (!user) return;
 
-    const result = addChild(user.id, user.email, {
+    const result = await addChild(user.id, user.email, {
       name: newChildName,
       grade: newChildGrade,
       level: newChildLevel,

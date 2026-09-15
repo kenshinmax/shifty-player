@@ -22,6 +22,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
 import { useRegistration } from "@/components/registration-provider";
 import {
@@ -31,6 +38,17 @@ import {
   getClinicCapacity,
   getRemainingClinicSpots,
 } from "@/lib/programs";
+import {
+  MERCHANDISE_CATALOG,
+  MERCHANDISE_SIZES,
+  computeRegistrationTotalCents,
+  computeSwagCents,
+  getMerchandiseItem,
+  type CartLine,
+  type MerchandiseSize,
+  type MerchandiseSkuId,
+} from "@/lib/merchandise";
+import { CLINIC_FEE_CENTS } from "@/lib/stripe-constants";
 import { emitMetricsEvent } from "@/lib/metrics-client";
 import { formatSessionStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -51,6 +69,10 @@ function formatUsd(amount: number): string {
   }).format(amount);
 }
 
+function formatCents(cents: number): string {
+  return formatUsd(cents / 100);
+}
+
 const publishableKey =
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ?? "";
 
@@ -66,12 +88,184 @@ function getStripePromise(): Promise<Stripe | null> {
   return stripePromise ?? Promise.resolve(null);
 }
 
+type SwagCartSectionProps = {
+  cart: CartLine[];
+  onChange: (cart: CartLine[]) => void;
+  disabled?: boolean;
+};
+
+function SwagCartSection({ cart, onChange, disabled }: SwagCartSectionProps) {
+  const [sizes, setSizes] = useState<Record<MerchandiseSkuId, MerchandiseSize>>({
+    tshirt: "AM",
+    shorts: "AM",
+  });
+
+  const addItem = (skuId: MerchandiseSkuId) => {
+    const size = sizes[skuId];
+    const existingIndex = cart.findIndex(
+      (line) => line.skuId === skuId && line.size === size,
+    );
+    if (existingIndex >= 0) {
+      onChange(
+        cart.map((line, index) =>
+          index === existingIndex
+            ? { ...line, quantity: line.quantity + 1 }
+            : line,
+        ),
+      );
+      return;
+    }
+    onChange([...cart, { skuId, size, quantity: 1 }]);
+  };
+
+  const removeLine = (index: number) => {
+    onChange(cart.filter((_, i) => i !== index));
+  };
+
+  return (
+    <section className="space-y-4" data-testid="registration-swag-cart">
+      <div>
+        <h2 className="font-heading text-xl font-semibold tracking-tight">
+          Team gear (optional)
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Add a t-shirt or shorts to your registration. Sizes ship with camp
+          gear.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {MERCHANDISE_CATALOG.map((item) => (
+          <div
+            key={item.id}
+            className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4"
+            data-testid={`swag-product-${item.id}`}
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="font-medium">{item.name}</p>
+              <p className="text-sm font-semibold">{formatUsd(item.priceUsd)}</p>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[7rem] flex-1 space-y-1">
+                <Label htmlFor={`swag-size-${item.id}`} className="text-xs">
+                  Size
+                </Label>
+                <Select
+                  value={sizes[item.id]}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    setSizes((current) => ({
+                      ...current,
+                      [item.id]: value as MerchandiseSize,
+                    }));
+                  }}
+                  disabled={disabled}
+                >
+                  <SelectTrigger
+                    id={`swag-size-${item.id}`}
+                    className="h-10 bg-white"
+                    data-testid={`swag-size-${item.id}`}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MERCHANDISE_SIZES.map((size) => (
+                      <SelectItem key={size} value={size}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={disabled}
+                data-testid={`swag-add-${item.id}`}
+                onClick={() => addItem(item.id)}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {cart.length > 0 ? (
+        <ul className="space-y-2 rounded-lg border border-zinc-200 bg-white p-4 text-sm">
+          {cart.map((line, index) => {
+            const item = getMerchandiseItem(line.skuId)!;
+            return (
+              <li
+                key={`${line.skuId}-${line.size}-${index}`}
+                className="flex flex-wrap items-center justify-between gap-2"
+                data-testid="swag-cart-line"
+              >
+                <span>
+                  {item.name} · {line.size} × {line.quantity}
+                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">
+                    {formatUsd(item.priceUsd * line.quantity)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => removeLine(index)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">No gear added yet.</p>
+      )}
+    </section>
+  );
+}
+
+function OrderTotalBreakdown({ cart }: { cart: CartLine[] }) {
+  const swagCents = computeSwagCents(cart);
+  const totalCents = computeRegistrationTotalCents(cart);
+
+  return (
+    <dl
+      className="space-y-2 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm"
+      data-testid="registration-order-total"
+    >
+      <div className="flex justify-between gap-4">
+        <dt className="text-muted-foreground">Clinic tuition</dt>
+        <dd className="font-medium">{formatCents(CLINIC_FEE_CENTS)}</dd>
+      </div>
+      {swagCents > 0 ? (
+        <div className="flex justify-between gap-4">
+          <dt className="text-muted-foreground">Team gear</dt>
+          <dd className="font-medium">{formatCents(swagCents)}</dd>
+        </div>
+      ) : null}
+      <div className="flex justify-between gap-4 border-t border-zinc-100 pt-2">
+        <dt className="font-semibold">Total due</dt>
+        <dd className="font-heading text-lg font-semibold">
+          {formatCents(totalCents)}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 type StripeCheckoutFormProps = {
   playerId: string;
   programId: string;
   clinicId: string;
   playerName: string;
   clinicLabel: string;
+  cart: CartLine[];
+  totalCents: number;
   onEnrolled: (message: string) => void;
 };
 
@@ -81,6 +275,8 @@ function StripeCheckoutForm({
   clinicId,
   playerName,
   clinicLabel,
+  cart,
+  totalCents,
   onEnrolled,
 }: StripeCheckoutFormProps) {
   const stripe = useStripe();
@@ -139,13 +335,7 @@ function StripeCheckoutForm({
         return;
       }
 
-      const result = completePaidRegistration(playerId, programId, clinicId);
-      if (result.error) {
-        emitMetricsEvent("payment_failed");
-        setError(result.error);
-        setSubmitting(false);
-        return;
-      }
+      await completePaidRegistration(playerId, programId, clinicId, cart);
 
       emitMetricsEvent("payment_succeeded");
       onEnrolled(
@@ -173,7 +363,7 @@ function StripeCheckoutForm({
       ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="lg" disabled={!stripe || submitting}>
-          {submitting ? "Processing…" : `Pay ${formatUsd(CLINIC_WEEKLY_FEE_USD)}`}
+          {submitting ? "Processing…" : `Pay ${formatCents(totalCents)}`}
         </Button>
         <Link
           href="/player"
@@ -193,6 +383,8 @@ type StripePaymentSectionProps = {
   parentUserId: string;
   playerName: string;
   clinicLabel: string;
+  cart: CartLine[];
+  totalCents: number;
   onEnrolled: (message: string) => void;
 };
 
@@ -203,13 +395,18 @@ function StripePaymentSection({
   parentUserId,
   playerName,
   clinicLabel,
+  cart,
+  totalCents,
   onEnrolled,
 }: StripePaymentSectionProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const cartKey = JSON.stringify(cart);
 
   useEffect(() => {
     let cancelled = false;
+    setClientSecret(null);
+    setLoadError(null);
 
     async function createIntent() {
       try {
@@ -221,6 +418,7 @@ function StripePaymentSection({
             programId,
             clinicId,
             parentUserId,
+            cart,
           }),
         });
         const body = (await response.json()) as {
@@ -244,7 +442,9 @@ function StripePaymentSection({
     return () => {
       cancelled = true;
     };
-  }, [playerId, programId, clinicId, parentUserId]);
+    // cartKey tracks cart contents for PaymentIntent recreation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId, programId, clinicId, parentUserId, cartKey]);
 
   if (loadError) {
     return (
@@ -264,6 +464,7 @@ function StripePaymentSection({
 
   return (
     <Elements
+      key={clientSecret}
       stripe={getStripePromise()}
       options={{
         clientSecret,
@@ -276,6 +477,8 @@ function StripePaymentSection({
         clinicId={clinicId}
         playerName={playerName}
         clinicLabel={clinicLabel}
+        cart={cart}
+        totalCents={totalCents}
         onEnrolled={onEnrolled}
       />
     </Elements>
@@ -288,6 +491,8 @@ type DemoPaymentFormProps = {
   clinicId: string;
   playerName: string;
   clinicLabel: string;
+  cart: CartLine[];
+  totalCents: number;
   onEnrolled: (message: string) => void;
 };
 
@@ -297,6 +502,8 @@ function DemoPaymentForm({
   clinicId,
   playerName,
   clinicLabel,
+  cart,
+  totalCents,
   onEnrolled,
 }: DemoPaymentFormProps) {
   const { completePaidRegistration } = useRegistration();
@@ -307,11 +514,16 @@ function DemoPaymentForm({
   const [billingZip, setBillingZip] = useState("");
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  const handlePaymentSubmit = (event: FormEvent) => {
+  const handlePaymentSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setPaymentError(null);
 
-    const result = completePaidRegistration(playerId, programId, clinicId);
+    const result = await completePaidRegistration(
+      playerId,
+      programId,
+      clinicId,
+      cart,
+    );
     if (result.error) {
       emitMetricsEvent("payment_failed");
       setPaymentError(result.error);
@@ -416,7 +628,7 @@ function DemoPaymentForm({
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="lg">
-          Pay {formatUsd(CLINIC_WEEKLY_FEE_USD)}
+          Pay {formatCents(totalCents)}
         </Button>
         <Link
           href="/player"
@@ -440,6 +652,12 @@ export function RegistrationReview() {
 
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
+  const [cart, setCart] = useState<CartLine[]>([]);
+
+  const totalCents = useMemo(
+    () => computeRegistrationTotalCents(cart),
+    [cart],
+  );
 
   const player = useMemo(
     () => state.players.find((entry) => entry.id === playerId),
@@ -526,7 +744,7 @@ export function RegistrationReview() {
         <p className="max-w-2xl text-muted-foreground">
           {paid || isPaid
             ? "This clinic enrollment is paid and confirmed."
-            : "Review player and clinic details, then pay to finish enrollment. The player is not registered until payment succeeds."}
+            : "Review player and clinic details, optionally add team gear, then pay to finish enrollment."}
         </p>
       </header>
 
@@ -607,7 +825,7 @@ export function RegistrationReview() {
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Amount due</dt>
+                <dt className="text-muted-foreground">Tuition</dt>
                 <dd className="font-heading text-lg font-semibold">
                   {formatUsd(CLINIC_WEEKLY_FEE_USD)}
                 </dd>
@@ -617,6 +835,13 @@ export function RegistrationReview() {
         </Card>
       </div>
 
+      {paid || isPaid ? null : (
+        <>
+          <SwagCartSection cart={cart} onChange={setCart} />
+          <OrderTotalBreakdown cart={cart} />
+        </>
+      )}
+
       <Card
         data-testid="registration-payment-card"
         className="border-zinc-200 bg-zinc-50 ring-zinc-200/80"
@@ -625,8 +850,8 @@ export function RegistrationReview() {
           <CardTitle className="font-heading text-xl">Payment</CardTitle>
           <CardDescription className="text-base">
             {stripeEnabled
-              ? `Pay ${formatUsd(CLINIC_WEEKLY_FEE_USD)} securely with Stripe for ${clinicLabel}.`
-              : `Enter card details to pay ${formatUsd(CLINIC_WEEKLY_FEE_USD)} for ${clinicLabel}. Demo mode (Stripe keys not configured).`}
+              ? `Pay ${formatCents(totalCents)} securely with Stripe for ${clinicLabel}.`
+              : `Enter card details to pay ${formatCents(totalCents)} for ${clinicLabel}. Demo mode (Stripe keys not configured).`}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
@@ -654,6 +879,8 @@ export function RegistrationReview() {
               parentUserId={user.id}
               playerName={player.name}
               clinicLabel={clinicLabel}
+              cart={cart}
+              totalCents={totalCents}
               onEnrolled={handleEnrolled}
             />
           ) : (
@@ -663,6 +890,8 @@ export function RegistrationReview() {
               clinicId={clinic.id}
               playerName={player.name}
               clinicLabel={clinicLabel}
+              cart={cart}
+              totalCents={totalCents}
               onEnrolled={handleEnrolled}
             />
           )}

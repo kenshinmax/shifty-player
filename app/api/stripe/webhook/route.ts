@@ -1,25 +1,23 @@
 import { NextResponse } from "next/server";
 import { recordMetricsEvent } from "@/lib/metrics";
-import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import { buildMerchandiseOrder } from "@/lib/merchandise";
+import {
+  claimProcessedPayment,
+  enrollPaidInDb,
+} from "@/lib/db/registration-repository";
+import {
+  evaluatePaymentIntentForEnrollment,
+  getStripe,
+  isStripeConfigured,
+} from "@/lib/stripe";
 import type Stripe from "stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const globalForWebhook = globalThis as typeof globalThis & {
-  __shiftyProcessedPaymentIntents?: Set<string>;
-};
-
-function getProcessedPaymentIntents(): Set<string> {
-  if (!globalForWebhook.__shiftyProcessedPaymentIntents) {
-    globalForWebhook.__shiftyProcessedPaymentIntents = new Set();
-  }
-  return globalForWebhook.__shiftyProcessedPaymentIntents;
-}
-
 /**
  * Stripe webhook for payment_intent.succeeded.
- * Records metrics only — does not write browser localStorage.
+ * Idempotently enrolls in MongoDB (including swag order) and records metrics.
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -59,9 +57,31 @@ export async function POST(request: Request) {
 
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    const processed = getProcessedPaymentIntents();
-    if (!processed.has(paymentIntent.id)) {
-      processed.add(paymentIntent.id);
+    const playerId = paymentIntent.metadata.playerId;
+    const programId = paymentIntent.metadata.programId;
+    const clinicId = paymentIntent.metadata.clinicId;
+    if (playerId && programId && clinicId) {
+      const evaluation = evaluatePaymentIntentForEnrollment(paymentIntent, {
+        playerId,
+        programId,
+        clinicId,
+      });
+      if (evaluation.approved) {
+        const merchandiseOrder = buildMerchandiseOrder(
+          clinicId,
+          evaluation.cart,
+        );
+        await enrollPaidInDb(
+          playerId,
+          programId,
+          clinicId,
+          merchandiseOrder.paidAt,
+          merchandiseOrder,
+        );
+      }
+    }
+    const claimed = await claimProcessedPayment(paymentIntent.id);
+    if (claimed) {
       recordMetricsEvent("payment_succeeded");
     }
   }

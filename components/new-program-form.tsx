@@ -48,11 +48,11 @@ export function NewProgramForm() {
     return <p className="text-muted-foreground">Redirecting…</p>;
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
 
-    const result = createProgram({
+    const result = await createProgram({
       name,
       description,
       startDate,

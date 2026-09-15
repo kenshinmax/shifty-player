@@ -1,36 +1,38 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  authenticate,
   canAddPlayer,
   canEdit,
   canManageSessions,
   canViewDashboard,
   canViewPlayerDashboard,
   getPostLoginPath,
-  registerParentAccount,
-  resetAccounts,
   resolveLoginRedirect,
   validateSignupInput,
 } from "@/lib/auth";
+import {
+  authenticateUser,
+  registerUser,
+  resetAuthStore,
+} from "@/lib/db/auth-repository";
 
 describe("auth", () => {
-  afterEach(() => {
-    resetAccounts();
+  afterEach(async () => {
+    await resetAuthStore();
   });
 
-  it("authenticates demo user and admin accounts", () => {
-    expect(authenticate("user@demo.com", "user")).toMatchObject({
+  it("authenticates demo user and admin accounts", async () => {
+    expect(await authenticateUser("user@demo.com", "user")).toMatchObject({
       role: "user",
     });
-    expect(authenticate("admin@demo.com", "admin")).toMatchObject({
+    expect(await authenticateUser("admin@demo.com", "admin")).toMatchObject({
       role: "admin",
     });
-    expect(authenticate("user@demo.com", "wrong")).toBeNull();
+    expect(await authenticateUser("user@demo.com", "wrong")).toBeNull();
   });
 
-  it("gates capabilities by role", () => {
-    const user = authenticate("user@demo.com", "user");
-    const admin = authenticate("admin@demo.com", "admin");
+  it("gates capabilities by role", async () => {
+    const user = await authenticateUser("user@demo.com", "user");
+    const admin = await authenticateUser("admin@demo.com", "admin");
 
     expect(canAddPlayer(null)).toBe(false);
     expect(canAddPlayer(user)).toBe(true);
@@ -50,26 +52,26 @@ describe("auth", () => {
     expect(canViewPlayerDashboard(admin)).toBe(false);
   });
 
-  it("routes players and admins to the correct post-login path", () => {
-    const user = authenticate("user@demo.com", "user")!;
-    const admin = authenticate("admin@demo.com", "admin")!;
+  it("routes players and admins to the correct post-login path", async () => {
+    const user = (await authenticateUser("user@demo.com", "user"))!;
+    const admin = (await authenticateUser("admin@demo.com", "admin"))!;
     expect(getPostLoginPath(user)).toBe("/player");
     expect(getPostLoginPath(admin)).toBe("/dashboard");
   });
 
-  it("resolves safe login redirects", () => {
-    const user = authenticate("user@demo.com", "user")!;
+  it("resolves safe login redirects", async () => {
+    const user = (await authenticateUser("user@demo.com", "user"))!;
     expect(resolveLoginRedirect(user, "/player")).toBe("/player");
     expect(resolveLoginRedirect(user, "//evil.com")).toBe("/player");
     expect(resolveLoginRedirect(user, null)).toBe("/player");
   });
 
-  it("registers a new parent account and signs them in via authenticate", () => {
+  it("registers a new parent account and signs them in via authenticate", async () => {
     expect(
       validateSignupInput({ name: "", email: "a@b.com", password: "pass" }),
     ).toBe("Name is required.");
 
-    const created = registerParentAccount({
+    const created = await registerUser({
       name: "Sam Parent",
       email: "sam.parent@example.com",
       password: "pass",
@@ -81,18 +83,15 @@ describe("auth", () => {
       role: "user",
     });
 
-    expect(
-      authenticate("sam.parent@example.com", "pass"),
-    ).toMatchObject({ name: "Sam Parent" });
-
-    expect(
-      registerParentAccount({
-        name: "Duplicate",
-        email: "sam.parent@example.com",
-        password: "pass",
-      }),
-    ).toMatchObject({
-      error: "An account with that email already exists.",
+    expect(await authenticateUser("sam.parent@example.com", "pass")).toMatchObject({
+      email: "sam.parent@example.com",
     });
+
+    const duplicate = await registerUser({
+      name: "Sam Parent",
+      email: "sam.parent@example.com",
+      password: "pass",
+    });
+    expect(duplicate.error).toMatch(/already exists/i);
   });
 });

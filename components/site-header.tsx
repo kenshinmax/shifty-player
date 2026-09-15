@@ -148,7 +148,11 @@ export function SiteHeader() {
                       Admin Dashboard
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuItem onClick={logout}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void logout();
+                    }}
+                  >
                     <LogOut />
                     Sign out
                   </DropdownMenuItem>

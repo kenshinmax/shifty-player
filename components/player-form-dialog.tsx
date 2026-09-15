@@ -29,7 +29,9 @@ type PlayerFormDialogProps = {
   player?: Player;
   sessions: Session[];
   defaultSessionIds?: string[];
-  onSubmit: (input: PlayerInput) => { error: string | null };
+  onSubmit: (
+    input: PlayerInput,
+  ) => { error: string | null } | Promise<{ error: string | null }>;
 };
 
 type PlayerFormContentProps = Omit<PlayerFormDialogProps, "open" | "onOpenChange"> & {
@@ -60,9 +62,9 @@ function PlayerFormContent({
     );
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = onSubmit({ name, email, grade, level, sessionIds });
+    const result = await onSubmit({ name, email, grade, level, sessionIds });
     if (result.error) {
       setError(result.error);
       return;

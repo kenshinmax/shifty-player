@@ -325,8 +325,8 @@ export function HomeContent() {
           onOpenChange={setRegisterOpen}
           sessions={state.sessions}
           defaultSessionIds={[latestProgram.id]}
-          onSubmit={(input) => {
-            const result = createPlayer(input);
+          onSubmit={async (input) => {
+            const result = await createPlayer(input);
             if (!result.error) {
               toast.success(`${input.name} registered for ${programTitle}`, {
                 description:

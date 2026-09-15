@@ -76,8 +76,8 @@ export function ProgramsRegistration() {
         onOpenChange={setPlayerDialogOpen}
         sessions={state.sessions}
         defaultSessionIds={latestSession ? [latestSession.id] : []}
-        onSubmit={(input) => {
-          const result = createPlayer(input);
+        onSubmit={async (input) => {
+          const result = await createPlayer(input);
           if (!result.error) {
             toast.success(`${input.name} registered`, {
               description: "Admins can send a payment link from the Dashboard.",

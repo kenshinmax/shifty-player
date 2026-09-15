@@ -1,8 +1,15 @@
 import Stripe from "stripe";
-import { CLINIC_WEEKLY_FEE_USD } from "@/lib/programs";
+import {
+  buildMerchandiseOrder,
+  computeRegistrationTotalCents,
+  parseCartFromMetadata,
+  serializeCartForMetadata,
+  type CartLine,
+} from "@/lib/merchandise";
+import { CLINIC_FEE_CENTS } from "@/lib/stripe-constants";
 
+export { CLINIC_FEE_CENTS };
 export const STRIPE_CURRENCY = "usd";
-export const CLINIC_FEE_CENTS = CLINIC_WEEKLY_FEE_USD * 100;
 
 export function isStripeConfigured(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
@@ -34,17 +41,24 @@ export type PaymentIntentMetadataInput = {
   programId: string;
   clinicId: string;
   parentUserId: string;
+  cart?: CartLine[];
 };
 
 export function buildPaymentIntentMetadata(
   input: PaymentIntentMetadataInput,
 ): Record<string, string> {
+  const cart = input.cart ?? [];
+  const swagCents = computeRegistrationTotalCents(cart) - CLINIC_FEE_CENTS;
+  const amountCents = computeRegistrationTotalCents(cart);
   return {
     playerId: input.playerId,
     programId: input.programId,
     clinicId: input.clinicId,
     parentUserId: input.parentUserId,
-    amountCents: String(CLINIC_FEE_CENTS),
+    amountCents: String(amountCents),
+    tuitionCents: String(CLINIC_FEE_CENTS),
+    swagCents: String(swagCents),
+    swagJson: serializeCartForMetadata(cart),
   };
 }
 
@@ -55,9 +69,14 @@ export type EnrollmentApprovalInput = {
   clinicId: string;
 };
 
+export type EnrollmentApprovalSuccess = {
+  approved: true;
+  cart: CartLine[];
+};
+
 /**
  * Pure validation of a retrieved PaymentIntent against expected enrollment.
- * Used by confirm-enrollment and unit tests.
+ * Recomputes total from metadata swagJson (server catalog prices).
  */
 export function evaluatePaymentIntentForEnrollment(
   paymentIntent: {
@@ -68,15 +87,12 @@ export function evaluatePaymentIntentForEnrollment(
     metadata: Stripe.Metadata;
   },
   expected: Omit<EnrollmentApprovalInput, "paymentIntentId">,
-): { approved: true } | { approved: false; error: string } {
+): EnrollmentApprovalSuccess | { approved: false; error: string } {
   if (paymentIntent.status !== "succeeded") {
     return {
       approved: false,
       error: `Payment is not complete (status: ${paymentIntent.status}).`,
     };
-  }
-  if (paymentIntent.amount !== CLINIC_FEE_CENTS) {
-    return { approved: false, error: "Payment amount does not match clinic fee." };
   }
   if (paymentIntent.currency !== STRIPE_CURRENCY) {
     return { approved: false, error: "Payment currency is invalid." };
@@ -90,18 +106,53 @@ export function evaluatePaymentIntentForEnrollment(
   if (paymentIntent.metadata.clinicId !== expected.clinicId) {
     return { approved: false, error: "Payment metadata clinic mismatch." };
   }
-  if (paymentIntent.metadata.amountCents !== String(CLINIC_FEE_CENTS)) {
+
+  const cartResult = parseCartFromMetadata(paymentIntent.metadata.swagJson);
+  if ("error" in cartResult) {
+    return { approved: false, error: cartResult.error };
+  }
+  const cart = cartResult;
+  const expectedTotal = computeRegistrationTotalCents(cart);
+  const expectedSwag = expectedTotal - CLINIC_FEE_CENTS;
+
+  if (paymentIntent.amount !== expectedTotal) {
+    return { approved: false, error: "Payment amount does not match order total." };
+  }
+  if (paymentIntent.metadata.amountCents !== String(expectedTotal)) {
     return { approved: false, error: "Payment metadata amount mismatch." };
   }
-  return { approved: true };
+  if (
+    paymentIntent.metadata.tuitionCents !== undefined &&
+    paymentIntent.metadata.tuitionCents !== String(CLINIC_FEE_CENTS)
+  ) {
+    return { approved: false, error: "Payment metadata tuition mismatch." };
+  }
+  if (
+    paymentIntent.metadata.swagCents !== undefined &&
+    paymentIntent.metadata.swagCents !== String(expectedSwag)
+  ) {
+    return { approved: false, error: "Payment metadata swag mismatch." };
+  }
+
+  return { approved: true, cart };
 }
 
 export async function approveEnrollmentFromPaymentIntent(
   input: EnrollmentApprovalInput,
-): Promise<{ approved: true } | { approved: false; error: string }> {
+): Promise<EnrollmentApprovalSuccess | { approved: false; error: string }> {
   const stripe = getStripe();
   const paymentIntent = await stripe.paymentIntents.retrieve(
     input.paymentIntentId,
   );
   return evaluatePaymentIntentForEnrollment(paymentIntent, input);
+}
+
+export function merchandiseOrderFromPaymentIntentMetadata(
+  clinicId: string,
+  metadata: Stripe.Metadata,
+  paidAt?: string,
+) {
+  const cartResult = parseCartFromMetadata(metadata.swagJson);
+  if ("error" in cartResult) return null;
+  return buildMerchandiseOrder(clinicId, cartResult, paidAt);
 }

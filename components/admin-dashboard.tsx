@@ -448,7 +448,7 @@ export function AdminDashboard() {
         player={editingPlayer}
         sessions={state.sessions}
         defaultSessionIds={state.sessions[0] ? [state.sessions[0].id] : []}
-        onSubmit={(input) =>
+        onSubmit={async (input) =>
           editingPlayer
             ? editPlayer(editingPlayer.id, input)
             : createPlayer(input)

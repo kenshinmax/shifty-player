@@ -34,9 +34,9 @@ export function LoginDialog({
   const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.error || !result.user) {
       setError(result.error ?? "Invalid email or password.");
       return;

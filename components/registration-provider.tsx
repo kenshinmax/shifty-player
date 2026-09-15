@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { usePlayerStore } from "@/lib/player-store";
+import { usePlayerStore } from "@/lib/use-player-store";
 
 type RegistrationStore = ReturnType<typeof usePlayerStore>;
 
@@ -9,6 +9,11 @@ const RegistrationContext = createContext<RegistrationStore | null>(null);
 
 export function RegistrationProvider({ children }: { children: ReactNode }) {
   const store = usePlayerStore();
+
+  if (!store.hydrated) {
+    return null;
+  }
+
   return (
     <RegistrationContext.Provider value={store}>
       {children}

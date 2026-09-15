@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import {
-  CLINIC_FEE_CENTS,
+  parseCart,
+  computeRegistrationTotalCents,
+} from "@/lib/merchandise";
+import {
   STRIPE_CURRENCY,
   buildPaymentIntentMetadata,
   getStripe,
@@ -15,9 +18,10 @@ type CreatePaymentIntentBody = {
   programId?: unknown;
   clinicId?: unknown;
   parentUserId?: unknown;
+  cart?: unknown;
 };
 
-function requireNonEmptyString(value: unknown, field: string): string | null {
+function requireNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) {
     return null;
   }
@@ -25,8 +29,8 @@ function requireNonEmptyString(value: unknown, field: string): string | null {
 }
 
 /**
- * Creates a PaymentIntent for clinic registration.
- * Amount is always server-computed from CLINIC_WEEKLY_FEE_USD.
+ * Creates a PaymentIntent for clinic registration (+ optional swag).
+ * Amount is always server-computed from catalog + clinic fee.
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -43,10 +47,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const playerId = requireNonEmptyString(body.playerId, "playerId");
-  const programId = requireNonEmptyString(body.programId, "programId");
-  const clinicId = requireNonEmptyString(body.clinicId, "clinicId");
-  const parentUserId = requireNonEmptyString(body.parentUserId, "parentUserId");
+  const playerId = requireNonEmptyString(body.playerId);
+  const programId = requireNonEmptyString(body.programId);
+  const clinicId = requireNonEmptyString(body.clinicId);
+  const parentUserId = requireNonEmptyString(body.parentUserId);
 
   if (!playerId || !programId || !clinicId || !parentUserId) {
     return NextResponse.json(
@@ -58,10 +62,17 @@ export async function POST(request: Request) {
     );
   }
 
+  const cartResult = parseCart(body.cart);
+  if ("error" in cartResult) {
+    return NextResponse.json({ error: cartResult.error }, { status: 400 });
+  }
+  const cart = cartResult;
+  const amount = computeRegistrationTotalCents(cart);
+
   try {
     const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: CLINIC_FEE_CENTS,
+      amount,
       currency: STRIPE_CURRENCY,
       automatic_payment_methods: { enabled: true },
       metadata: buildPaymentIntentMetadata({
@@ -69,6 +80,7 @@ export async function POST(request: Request) {
         programId,
         clinicId,
         parentUserId,
+        cart,
       }),
     });
 
@@ -82,6 +94,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
+      amountCents: amount,
     });
   } catch (error) {
     const message =

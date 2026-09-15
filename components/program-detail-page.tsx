@@ -256,7 +256,7 @@ export function ProgramDetailPage() {
         player={editingPlayer}
         sessions={clinics.length > 0 ? clinics : state.sessions}
         defaultSessionIds={clinics[0] ? [clinics[0].id] : []}
-        onSubmit={(input) => {
+        onSubmit={async (input) => {
           if (editingPlayer) {
             return editPlayer(editingPlayer.id, {
               ...input,

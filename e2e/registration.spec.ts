@@ -31,8 +31,12 @@ async function signInAsPlayer(page: Page) {
 }
 
 async function clearClientState(page: Page) {
+  await page.context().clearCookies();
   await page.goto("/");
   await page.evaluate(() => localStorage.clear());
+  const seed = await page.request.post("/api/admin/seed");
+  expect(seed.ok()).toBeTruthy();
+  await page.reload();
 }
 
 test("admin dashboard players and payment links", async ({ page }) => {
@@ -335,13 +339,21 @@ test("parent login lands on dashboard with program registration", async ({
   await page.getByRole("option", { name: /Week 1/ }).click();
   await page.getByRole("button", { name: "Continue to payment" }).click();
 
+  // Optional swag on payment page (demo path).
+  await expect(page.getByTestId("registration-swag-cart")).toBeVisible();
+  await page.getByTestId("swag-add-tshirt").click();
+  await expect(page.getByTestId("swag-cart-line")).toContainText("Team T-Shirt");
+  await expect(page.getByTestId("registration-order-total")).toContainText(
+    "$485.00",
+  );
+
   // Demo checkout path when STRIPE_SECRET_KEY / publishable key are unset.
   await page.locator("#cardholder-name").fill("Jordan Rivera");
   await page.locator("#card-number").fill("4242424242424242");
   await page.locator("#card-expiry").fill("12 / 30");
   await page.locator("#card-cvc").fill("123");
   await page.locator("#billing-zip").fill("06883");
-  await page.getByRole("button", { name: /Pay \$460/ }).click();
+  await page.getByRole("button", { name: /Pay \$485/ }).click();
 
   await expect(page).toHaveURL(/\/player$/);
   await expect(page.getByTestId("parent-children-overview")).toContainText(

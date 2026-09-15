@@ -1,13 +1,3 @@
-"use client";
-
-import { useCallback, useEffect, useRef, useState } from "react";
-import { sampleData } from "./sample-data";
-import {
-  REGISTRATION_STORAGE_KEY,
-  loadRegistrationState,
-  parseRegistrationState,
-  saveRegistrationState,
-} from "./storage";
 import {
   DEFAULT_CLINIC_CAPACITY,
   type AppState,
@@ -16,7 +6,6 @@ import {
   type Session,
   type SessionStatus,
 } from "./types";
-import { sessionKey } from "./format";
 import { getClinicCapacity, getRemainingClinicSpots } from "./programs";
 
 export function filterSessionsByYearMonth(
@@ -123,6 +112,7 @@ export function completePaidClinicRegistration(
   programId: string,
   clinicId: string,
   paidAt: string = new Date().toISOString(),
+  merchandiseOrder?: Player["merchandiseOrder"],
 ): AppState | { error: string } {
   const registered = registerChildForClinic(
     state,
@@ -131,7 +121,12 @@ export function completePaidClinicRegistration(
     clinicId,
   );
   if ("error" in registered) return registered;
-  return markPaymentLinkSent(registered, playerId, paidAt);
+  const paid = markPaymentLinkSent(registered, playerId, paidAt);
+  if (!merchandiseOrder) return paid;
+  return updatePlayer(paid, playerId, {
+    ...paid.players.find((player) => player.id === playerId)!,
+    merchandiseOrder,
+  });
 }
 
 export function setProgramOpen(
@@ -476,22 +471,6 @@ export function addChildForParent(
   });
 }
 
-function programIdsForSessions(
-  sessions: Session[],
-  sessionIds: string[],
-): string[] {
-  return [
-    ...new Set(
-      sessionIds
-        .map(
-          (sessionId) =>
-            sessions.find((session) => session.id === sessionId)?.programId,
-        )
-        .filter((programId): programId is string => Boolean(programId)),
-    ),
-  ];
-}
-
 export function validatePlayerInput(input: PlayerInput): string | null {
   if (!input.name.trim()) return "Name is required.";
   if (!input.email.trim()) return "Email is required.";
@@ -521,324 +500,4 @@ export function validateSessionInput(input: SessionInput): string | null {
     return "Enter a valid month.";
   }
   return null;
-}
-
-export function usePlayerStore(initialState: AppState = sampleData) {
-  const [state, setState] = useState<AppState>(initialState);
-  const [hydrated, setHydrated] = useState(false);
-  const skipSaveRef = useRef(true);
-
-  const persistState = useCallback((next: AppState) => {
-    saveRegistrationState(next);
-  }, []);
-
-  const replaceStateFromStorage = useCallback(() => {
-    skipSaveRef.current = true;
-    setState(loadRegistrationState());
-  }, []);
-
-  useEffect(() => {
-    skipSaveRef.current = true;
-    setState(loadRegistrationState());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    if (skipSaveRef.current) {
-      skipSaveRef.current = false;
-      return;
-    }
-    saveRegistrationState(state);
-  }, [state, hydrated]);
-
-  // Keep admin/parent views in sync when another tab updates registration data.
-  useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== REGISTRATION_STORAGE_KEY || event.newValue == null) {
-        return;
-      }
-      const parsed = parseRegistrationState(event.newValue);
-      if (!parsed) return;
-      skipSaveRef.current = true;
-      setState(parsed);
-    };
-
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  const commitState = useCallback(
-    (updater: (current: AppState) => AppState) => {
-      setState((current) => {
-        const next = updater(current);
-        if (next !== current) {
-          persistState(next);
-        }
-        return next;
-      });
-    },
-    [persistState],
-  );
-
-  const syncFromStorage = useCallback(() => {
-    replaceStateFromStorage();
-  }, [replaceStateFromStorage]);
-  const createPlayer = useCallback((input: PlayerInput) => {
-    const error = validatePlayerInput(input);
-    if (error) return { error };
-
-    setState((current) =>
-      addPlayer(current, {
-        name: input.name.trim(),
-        email: input.email.trim().toLowerCase(),
-        grade: input.grade.trim(),
-        level: input.level,
-        programIds: programIdsForSessions(current.sessions, input.sessionIds),
-        sessionIds: input.sessionIds,
-        parentUserId: input.parentUserId,
-        avatarUrl: `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(input.name.trim())}&size=80`,
-      }),
-    );
-    return { error: null };
-  }, []);
-
-  const editPlayer = useCallback((playerId: string, input: PlayerInput) => {
-    const error = validatePlayerInput(input);
-    if (error) return { error };
-
-    setState((current) => {
-      const existing = current.players.find((player) => player.id === playerId);
-      return updatePlayer(current, playerId, {
-        name: input.name.trim(),
-        email: input.email.trim().toLowerCase(),
-        grade: input.grade.trim(),
-        level: input.level,
-        programIds: programIdsForSessions(current.sessions, input.sessionIds),
-        sessionIds: input.sessionIds,
-        parentUserId: existing?.parentUserId,
-        paymentLinkSentAt: existing?.paymentLinkSentAt,
-        avatarUrl: existing?.avatarUrl,
-      });
-    });
-    return { error: null };
-  }, []);
-
-  const removePlayer = useCallback((playerId: string) => {
-    setState((current) => deletePlayer(current, playerId));
-  }, []);
-
-  const sendPaymentLink = useCallback((playerId: string) => {
-    commitState((current) => markPaymentLinkSent(current, playerId));
-  }, [commitState]);
-
-  const createSession = useCallback((input: SessionInput) => {
-    const error = validateSessionInput(input);
-    if (error) return { error };
-
-    let addError: string | undefined;
-    setState((current) => {
-      const programId =
-        input.programId ??
-        current.programs.find((program) => program.status === "trending")?.id ??
-        current.programs[0]?.id;
-      if (!programId) {
-        addError = "Create a program before adding clinics.";
-        return current;
-      }
-
-      const result = addSession(current, {
-        programId,
-        year: input.year,
-        month: input.month,
-        week: input.week,
-        label: input.label?.trim() || undefined,
-        status: input.status ?? "trending",
-      });
-      if ("error" in result) {
-        addError = result.error;
-        return current;
-      }
-      return result;
-    });
-
-    return addError ? { error: addError } : { error: null };
-  }, []);
-
-  const editSession = useCallback((sessionId: string, input: SessionInput) => {
-    const error = validateSessionInput(input);
-    if (error) return { error };
-
-    let editError: string | undefined;
-    setState((current) => {
-      const existing = current.sessions.find(
-        (session) => session.id === sessionId,
-      );
-      const result = updateSession(current, sessionId, {
-        programId: input.programId ?? existing?.programId ?? current.programs[0]?.id ?? "",
-        year: input.year,
-        month: input.month,
-        week: input.week ?? existing?.week,
-        label: input.label?.trim() || undefined,
-        status: input.status ?? existing?.status ?? "trending",
-      });
-      if ("error" in result) {
-        editError = result.error;
-        return current;
-      }
-      return result;
-    });
-
-    return editError ? { error: editError } : { error: null };
-  }, []);
-
-  const removeSession = useCallback((sessionId: string) => {
-    setState((current) => deleteSession(current, sessionId));
-  }, []);
-
-  const addChild = useCallback(
-    (parentUserId: string, parentEmail: string, input: ChildInput) => {
-      const error = validateChildInput(input);
-      if (error) return { error, childId: null };
-
-      let childId: string | null = null;
-      setState((current) => {
-        const next = addChildForParent(
-          current,
-          parentUserId,
-          parentEmail,
-          input,
-        );
-        childId = next.players.at(-1)?.id ?? null;
-        return next;
-      });
-      return { error: null, childId };
-    },
-    [],
-  );
-
-  const validateRegistration = useCallback(
-    (playerId: string, programId: string, clinicId: string) => {
-      return {
-        error: validateClinicRegistration(state, playerId, programId, clinicId),
-      };
-    },
-    [state],
-  );
-
-  const registerForClinic = useCallback(
-    (playerId: string, programId: string, clinicId: string) => {
-      let registerError: string | undefined;
-      setState((current) => {
-        const result = registerChildForClinic(
-          current,
-          playerId,
-          programId,
-          clinicId,
-        );
-        if ("error" in result) {
-          registerError = result.error;
-          return current;
-        }
-        return result;
-      });
-      return registerError ? { error: registerError } : { error: null };
-    },
-    [],
-  );
-
-  const completePaidRegistration = useCallback(
-    (playerId: string, programId: string, clinicId: string) => {
-      let registerError: string | undefined;
-      commitState((current) => {
-        const player = current.players.find((entry) => entry.id === playerId);
-        const alreadyEnrolled =
-          Boolean(player?.sessionIds.includes(clinicId)) &&
-          Boolean(player?.paymentLinkSentAt);
-
-        if (alreadyEnrolled) {
-          // Idempotent success for Strict Mode double-updates / retries.
-          return current;
-        }
-
-        const result = completePaidClinicRegistration(
-          current,
-          playerId,
-          programId,
-          clinicId,
-        );
-        if ("error" in result) {
-          registerError = result.error;
-          return current;
-        }
-        return result;
-      });
-      return registerError ? { error: registerError } : { error: null };
-    },
-    [commitState],
-  );
-
-  const setProgramRegistrationOpen = useCallback(
-    (programId: string, open: boolean) => {
-      setState((current) => setProgramOpen(current, programId, open));
-    },
-    [],
-  );
-
-  const createProgram = useCallback((input: ProgramInput) => {
-    let createError: string | undefined;
-    let programId: string | null = null;
-    setState((current) => {
-      const result = addProgram(current, input);
-      if ("error" in result) {
-        createError = result.error;
-        return current;
-      }
-      programId = result.programs[0]?.id ?? null;
-      return result;
-    });
-    return createError
-      ? { error: createError, programId: null }
-      : { error: null, programId };
-  }, []);
-
-  const removeFromProgram = useCallback(
-    (playerId: string, programId: string) => {
-      setState((current) =>
-        removePlayerFromProgram(current, playerId, programId),
-      );
-    },
-    [],
-  );
-
-  const setClinicRegistrationAvailable = useCallback(
-    (clinicId: string, available: boolean) => {
-      setState((current) => setClinicAvailable(current, clinicId, available));
-    },
-    [],
-  );
-
-  return {
-    state,
-    syncFromStorage,
-    createPlayer,
-    editPlayer,
-    removePlayer,
-    sendPaymentLink,
-    createSession,
-    editSession,
-    removeSession,
-    addChild,
-    validateRegistration,
-    registerForClinic,
-    completePaidRegistration,
-    createProgram,
-    removeFromProgram,
-    setProgramRegistrationOpen,
-    setClinicRegistrationAvailable,
-    countPlayersForSession: (sessionId: string) =>
-      countPlayersForSession(state.players, sessionId),
-    getSessionLabel: (session: Session) =>
-      session.label ?? sessionKey(session.year, session.month),
-  };
 }
