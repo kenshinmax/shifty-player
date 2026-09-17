@@ -20,10 +20,17 @@ export type MerchandiseItem = {
   name: string;
   /** Unit price in USD (whole dollars for MVP). */
   priceUsd: number;
+  /** Public path for the product thumbnail shown at checkout. */
+  imageSrc?: string;
 };
 
 export const MERCHANDISE_CATALOG: MerchandiseItem[] = [
-  { id: "tshirt", name: "Team T-Shirt", priceUsd: 25 },
+  {
+    id: "tshirt",
+    name: "Team T-Shirt",
+    priceUsd: 25,
+    imageSrc: "/bbal-tshirt-swag.png",
+  },
   { id: "shorts", name: "Team Shorts", priceUsd: 30 },
 ];
 

@@ -141,6 +141,14 @@ function SwagCartSection({ cart, onChange, disabled }: SwagCartSectionProps) {
             className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4"
             data-testid={`swag-product-${item.id}`}
           >
+            {item.imageSrc ? (
+              <img
+                src={item.imageSrc}
+                alt={item.name}
+                className="mx-auto h-36 w-36 object-contain"
+                data-testid={`swag-image-${item.id}`}
+              />
+            ) : null}
             <div className="flex items-baseline justify-between gap-2">
               <p className="font-medium">{item.name}</p>
               <p className="text-sm font-semibold">{formatUsd(item.priceUsd)}</p>
@@ -201,7 +209,14 @@ function SwagCartSection({ cart, onChange, disabled }: SwagCartSectionProps) {
                 className="flex flex-wrap items-center justify-between gap-2"
                 data-testid="swag-cart-line"
               >
-                <span>
+                <span className="flex items-center gap-3">
+                  {item.imageSrc ? (
+                    <img
+                      src={item.imageSrc}
+                      alt=""
+                      className="h-12 w-12 rounded object-contain"
+                    />
+                  ) : null}
                   {item.name} · {line.size} × {line.quantity}
                 </span>
                 <div className="flex items-center gap-3">
