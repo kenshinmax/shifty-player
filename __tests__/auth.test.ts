@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { requireAdmin } from "@/lib/api-auth";
 import {
   canAddPlayer,
   canEdit,
@@ -11,8 +12,11 @@ import {
 } from "@/lib/auth";
 import {
   authenticateUser,
+  buildSessionCookie,
+  createSession,
   registerUser,
   resetAuthStore,
+  sessionCookieName,
 } from "@/lib/db/auth-repository";
 
 describe("auth", () => {
@@ -52,6 +56,32 @@ describe("auth", () => {
     expect(canViewPlayerDashboard(admin)).toBe(false);
   });
 
+  it("requires admin session for admin API helpers", async () => {
+    const unauth = await requireAdmin(
+      new Request("http://localhost/api/programs"),
+    );
+    expect(unauth.error?.status).toBe(401);
+
+    const parent = (await authenticateUser("user@demo.com", "user"))!;
+    const parentToken = await createSession(parent.id);
+    const parentDenied = await requireAdmin(
+      new Request("http://localhost/api/programs", {
+        headers: { cookie: `${sessionCookieName()}=${parentToken}` },
+      }),
+    );
+    expect(parentDenied.error?.status).toBe(403);
+
+    const admin = (await authenticateUser("admin@demo.com", "admin"))!;
+    const adminToken = await createSession(admin.id);
+    const adminOk = await requireAdmin(
+      new Request("http://localhost/api/programs", {
+        headers: { cookie: buildSessionCookie(adminToken).split(";")[0]! },
+      }),
+    );
+    expect(adminOk.user?.role).toBe("admin");
+    expect(adminOk.error).toBeUndefined();
+  });
+
   it("routes players and admins to the correct post-login path", async () => {
     const user = (await authenticateUser("user@demo.com", "user"))!;
     const admin = (await authenticateUser("admin@demo.com", "admin"))!;
@@ -83,7 +113,9 @@ describe("auth", () => {
       role: "user",
     });
 
-    expect(await authenticateUser("sam.parent@example.com", "pass")).toMatchObject({
+    expect(
+      await authenticateUser("sam.parent@example.com", "pass"),
+    ).toMatchObject({
       email: "sam.parent@example.com",
     });
 

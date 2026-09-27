@@ -23,30 +23,38 @@ import {
   apiSendPaymentLink,
   apiSetClinicAvailable,
   apiSetProgramOpen,
+  apiUpdateProgram,
   apiUpdateClinic,
   apiUpdatePlayer,
   fetchRegistrationState,
 } from "@/lib/registration-api";
+import { normalizeRegistrationState } from "@/lib/storage";
 import type { AppState, Session } from "@/lib/types";
 
 export function usePlayerStore(initialState: AppState = sampleData) {
-  const [state, setState] = useState<AppState>(initialState);
+  const [state, setState] = useState<AppState>(() =>
+    normalizeRegistrationState(initialState),
+  );
   const [hydrated, setHydrated] = useState(false);
+
+  const applyState = useCallback((next: AppState | undefined) => {
+    if (next) setState(normalizeRegistrationState(next));
+  }, []);
 
   const refresh = useCallback(async () => {
     const next = await fetchRegistrationState();
-    setState(next);
+    applyState(next);
     return next;
-  }, []);
+  }, [applyState]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const next = await fetchRegistrationState();
-        if (!cancelled) setState(next);
+        if (!cancelled) applyState(next);
       } catch {
-        if (!cancelled) setState(sampleData);
+        if (!cancelled) applyState(sampleData);
       } finally {
         if (!cancelled) setHydrated(true);
       }
@@ -54,11 +62,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const applyState = useCallback((next: AppState | undefined) => {
-    if (next) setState(next);
-  }, []);
+  }, [applyState]);
 
   const syncFromStorage = useCallback(() => {
     void refresh();
@@ -185,6 +189,18 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     [applyState],
   );
 
+  const updateProgramDetails = useCallback(
+    async (programId: string, input: ProgramInput) => {
+      const result = await apiUpdateProgram(programId, input);
+      if (result.error || !result.state) {
+        return { error: result.error ?? "Failed." };
+      }
+      applyState(result.state);
+      return { error: null };
+    },
+    [applyState],
+  );
+
   const createProgram = useCallback(
     async (input: ProgramInput) => {
       const result = await apiCreateProgram(input);
@@ -230,6 +246,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     registerForClinic,
     completePaidRegistration,
     createProgram,
+    updateProgramDetails,
     removeFromProgram,
     setProgramRegistrationOpen,
     setClinicRegistrationAvailable,

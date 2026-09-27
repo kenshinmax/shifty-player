@@ -9,6 +9,19 @@ import {
 /** Weekly clinic tuition shown on registration payment (Stripe-ready). */
 export const CLINIC_WEEKLY_FEE_USD = 460;
 
+/** Resolves clinic tuition in USD, falling back to the default weekly fee. */
+export function getClinicPriceUsd(clinic: Session): number {
+  if (typeof clinic.priceUsd === "number" && clinic.priceUsd > 0) {
+    return clinic.priceUsd;
+  }
+  return CLINIC_WEEKLY_FEE_USD;
+}
+
+/** Clinic tuition in cents for Stripe / order totals. */
+export function getClinicTuitionCents(clinic: Session): number {
+  return Math.round(getClinicPriceUsd(clinic) * 100);
+}
+
 /** Resolves clinic capacity, falling back to the default of 50. */
 export function getClinicCapacity(clinic: Session): number {
   return clinic.capacity > 0 ? clinic.capacity : DEFAULT_CLINIC_CAPACITY;
@@ -131,9 +144,22 @@ export function getPlayersForProgram(
 
 export function formatClinicLabel(clinic: Session): string {
   if (clinic.label) {
-    return `${clinic.label} (${formatMonth(clinic.month)} ${clinic.year})`;
+    return clinic.label;
+  }
+  if (clinic.week) {
+    return `Week ${clinic.week}`;
   }
   return `${formatMonth(clinic.month)} ${clinic.year}`;
+}
+
+/** Clinic label with month/year for places that need a single combined string. */
+export function formatClinicLabelWithDate(clinic: Session): string {
+  const label = formatClinicLabel(clinic);
+  const date = `${formatMonth(clinic.month)} ${clinic.year}`;
+  if (clinic.label || clinic.week) {
+    return `${label} (${date})`;
+  }
+  return date;
 }
 
 export function getActiveProgramStatus(
@@ -202,7 +228,7 @@ export function getActiveProgramsForPlayer(
       return clinics.map((clinic) => ({
         ...base,
         id: `${player.id}:${program.id}:${clinic.id}`,
-        clinicName: formatClinicLabel(clinic),
+            clinicName: formatClinicLabelWithDate(clinic),
       }));
     });
 }

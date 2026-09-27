@@ -1,12 +1,17 @@
 import {
+  CLINIC_WEEKLY_FEE_USD,
+  getClinicCapacity,
+  getRemainingClinicSpots,
+} from "./programs";
+import {
   DEFAULT_CLINIC_CAPACITY,
   type AppState,
   type Level,
   type Player,
+  type Program,
   type Session,
   type SessionStatus,
 } from "./types";
-import { getClinicCapacity, getRemainingClinicSpots } from "./programs";
 
 export function filterSessionsByYearMonth(
   sessions: Session[],
@@ -142,6 +147,43 @@ export function setProgramOpen(
   };
 }
 
+export function updateProgram(
+  state: AppState,
+  programId: string,
+  input: ProgramInput,
+): AppState | { error: string } {
+  const error = validateProgramInput(input);
+  if (error) return { error };
+  if (!state.programs.some((program) => program.id === programId)) {
+    return { error: "Program not found." };
+  }
+
+  const start = parseIsoDateParts(input.startDate)!;
+  const end = parseIsoDateParts(input.endDate)!;
+  const spots = input.spots > 0 ? input.spots : DEFAULT_CLINIC_CAPACITY;
+
+  return {
+    ...state,
+    programs: state.programs.map((program) =>
+      program.id === programId
+        ? {
+            ...program,
+            name: input.name.trim(),
+            description: input.description.trim(),
+            year: start.year,
+            open: input.open,
+            startMonth: start.month,
+            endMonth: end.month,
+            startDate: input.startDate.trim(),
+            endDate: input.endDate.trim(),
+            location: input.location?.trim() || undefined,
+            spots,
+          }
+        : program,
+    ),
+  };
+}
+
 export type ProgramInput = {
   name: string;
   description: string;
@@ -229,6 +271,7 @@ export function addProgram(
     status: "trending" as const,
     available: input.open,
     capacity: spots,
+    priceUsd: CLINIC_WEEKLY_FEE_USD,
   };
 
   return {
@@ -335,6 +378,7 @@ export function addSession(
   session: Omit<Session, "id" | "available" | "capacity"> & {
     available?: boolean;
     capacity?: number;
+    priceUsd?: number;
   },
 ): AppState | { error: string } {
   if (
@@ -349,6 +393,10 @@ export function addSession(
   }
 
   const id = `session-${crypto.randomUUID()}`;
+  const priceUsd =
+    typeof session.priceUsd === "number" && session.priceUsd > 0
+      ? session.priceUsd
+      : CLINIC_WEEKLY_FEE_USD;
   return {
     ...state,
     sessions: [
@@ -360,6 +408,7 @@ export function addSession(
           session.capacity && session.capacity > 0
             ? session.capacity
             : DEFAULT_CLINIC_CAPACITY,
+        priceUsd,
         id,
       },
     ],
@@ -372,6 +421,7 @@ export function updateSession(
   updates: Omit<Session, "id" | "available" | "capacity"> & {
     available?: boolean;
     capacity?: number;
+    priceUsd?: number;
   },
 ): AppState | { error: string } {
   if (
@@ -398,6 +448,10 @@ export function updateSession(
               updates.capacity && updates.capacity > 0
                 ? updates.capacity
                 : getClinicCapacity(session),
+            priceUsd:
+              typeof updates.priceUsd === "number" && updates.priceUsd > 0
+                ? updates.priceUsd
+                : session.priceUsd,
             id: sessionId,
           }
         : session,
@@ -490,6 +544,9 @@ export type SessionInput = {
   status?: SessionStatus;
   programId?: string;
   week?: number;
+  capacity?: number;
+  priceUsd?: number;
+  available?: boolean;
 };
 
 export function validateSessionInput(input: SessionInput): string | null {
@@ -498,6 +555,18 @@ export function validateSessionInput(input: SessionInput): string | null {
   }
   if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
     return "Enter a valid month.";
+  }
+  if (
+    input.capacity !== undefined &&
+    (!Number.isInteger(input.capacity) || input.capacity < 1)
+  ) {
+    return "Capacity must be at least 1.";
+  }
+  if (
+    input.priceUsd !== undefined &&
+    (!Number.isFinite(input.priceUsd) || input.priceUsd <= 0)
+  ) {
+    return "Price must be greater than 0.";
   }
   return null;
 }

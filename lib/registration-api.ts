@@ -107,6 +107,13 @@ export async function apiSetProgramOpen(programId: string, open: boolean) {
   return postJson(`/api/programs/${programId}`, { open }, "PATCH");
 }
 
+export async function apiUpdateProgram(
+  programId: string,
+  input: ProgramInput,
+) {
+  return postJson(`/api/programs/${programId}`, input, "PATCH");
+}
+
 export async function apiRemoveFromProgram(
   playerId: string,
   programId: string,

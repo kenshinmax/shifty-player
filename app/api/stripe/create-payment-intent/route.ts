@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { getRegistrationState } from "@/lib/db/registration-repository";
 import {
   parseCart,
   computeRegistrationTotalCents,
 } from "@/lib/merchandise";
+import { getClinicTuitionCents } from "@/lib/programs";
 import {
   STRIPE_CURRENCY,
   buildPaymentIntentMetadata,
@@ -30,7 +32,7 @@ function requireNonEmptyString(value: unknown): string | null {
 
 /**
  * Creates a PaymentIntent for clinic registration (+ optional swag).
- * Amount is always server-computed from catalog + clinic fee.
+ * Amount is always server-computed from clinic price + catalog.
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -67,7 +69,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: cartResult.error }, { status: 400 });
   }
   const cart = cartResult;
-  const amount = computeRegistrationTotalCents(cart);
+
+  const state = await getRegistrationState();
+  const clinic = state.sessions.find((session) => session.id === clinicId);
+  if (!clinic) {
+    return NextResponse.json({ error: "Clinic not found." }, { status: 404 });
+  }
+  if (clinic.programId !== programId) {
+    return NextResponse.json(
+      { error: "Clinic does not belong to that program." },
+      { status: 400 },
+    );
+  }
+
+  const tuitionCents = getClinicTuitionCents(clinic);
+  const amount = computeRegistrationTotalCents(cart, tuitionCents);
 
   try {
     const stripe = getStripe();
@@ -81,6 +97,7 @@ export async function POST(request: Request) {
         clinicId,
         parentUserId,
         cart,
+        tuitionCents,
       }),
     });
 

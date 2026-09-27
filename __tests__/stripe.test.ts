@@ -45,7 +45,7 @@ function makeIntent(
 describe("evaluatePaymentIntentForEnrollment", () => {
   it("approves a matching succeeded PaymentIntent (tuition only)", () => {
     expect(evaluatePaymentIntentForEnrollment(makeIntent(), baseExpected)).toEqual(
-      { approved: true, cart: [] },
+      { approved: true, cart: [], tuitionCents: CLINIC_FEE_CENTS },
     );
   });
 
@@ -55,7 +55,11 @@ describe("evaluatePaymentIntentForEnrollment", () => {
       makeIntent({ cart }),
       baseExpected,
     );
-    expect(result).toEqual({ approved: true, cart });
+    expect(result).toEqual({
+      approved: true,
+      cart,
+      tuitionCents: CLINIC_FEE_CENTS,
+    });
   });
 
   it("rejects non-succeeded status", () => {

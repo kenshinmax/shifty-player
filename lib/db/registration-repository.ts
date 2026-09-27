@@ -1,6 +1,6 @@
 import { normalizeRegistrationState } from "@/lib/storage";
 import { sampleData } from "@/lib/sample-data";
-import { getDb, isMongoConfigured } from "@/lib/mongo";
+import { getDb, getMongoClient, getMongoDbName, isMongoConfigured } from "@/lib/mongo";
 import type { AppState, Player, Program, Session } from "@/lib/types";
 import {
   addChildForParent,
@@ -14,6 +14,7 @@ import {
   removePlayerFromProgram,
   setClinicAvailable,
   setProgramOpen,
+  updateProgram,
   updatePlayer,
   updateSession,
   type ChildInput,
@@ -93,6 +94,85 @@ function programIdsForSessions(
   ];
 }
 
+async function ensureUniqueIdIndexes(): Promise<void> {
+  if (!isMongoConfigured()) return;
+  const db = await getDb();
+  await Promise.all(
+    [PROGRAMS, SESSIONS, PLAYERS].map((name) =>
+      db.collection(name).createIndex({ id: 1 }, { unique: true }),
+    ),
+  );
+}
+
+async function replaceCollectionById<T extends { id: string }>(
+  collectionName: string,
+  items: T[],
+): Promise<void> {
+  const client = await getMongoClient();
+  const db = client.db(getMongoDbName());
+  const collection = db.collection(collectionName);
+  const docs = items as unknown as import("mongodb").OptionalId<
+    import("mongodb").Document
+  >[];
+
+  // Prefer a transaction when available; fall back to delete+insert.
+  const session = client.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await collection.deleteMany({}, { session });
+      if (docs.length > 0) {
+        await collection.insertMany(docs, { session });
+      }
+    });
+  } catch {
+    await collection.deleteMany({});
+    if (docs.length > 0) {
+      await collection.insertMany(docs);
+    }
+  } finally {
+    await session.endSession();
+  }
+}
+
+/** Serialize registration writes so concurrent mutations cannot duplicate docs. */
+type WriteGlobal = typeof globalThis & {
+  __shiftyRegistrationWriteChain?: Promise<unknown>;
+};
+
+function enqueueRegistrationWrite<T>(task: () => Promise<T>): Promise<T> {
+  const g = globalThis as WriteGlobal;
+  const previous = g.__shiftyRegistrationWriteChain ?? Promise.resolve();
+  const next = previous.then(task, task);
+  g.__shiftyRegistrationWriteChain = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
+async function writeAppState(state: AppState): Promise<void> {
+  const normalized = normalizeRegistrationState(state);
+
+  if (!isMongoConfigured()) {
+    const memory = getMemoryDb();
+    memory.programs = normalized.programs;
+    memory.sessions = normalized.sessions;
+    memory.players = normalized.players;
+    return;
+  }
+
+  await Promise.all([
+    replaceCollectionById(PROGRAMS, normalized.programs),
+    replaceCollectionById(SESSIONS, normalized.sessions),
+    replaceCollectionById(PLAYERS, normalized.players),
+  ]);
+  try {
+    await ensureUniqueIdIndexes();
+  } catch {
+    // Unique index creation can fail while a repair is in flight.
+  }
+}
+
 async function readAppState(): Promise<AppState> {
   if (!isMongoConfigured()) {
     const memory = getMemoryDb();
@@ -115,7 +195,7 @@ async function readAppState(): Promise<AppState> {
     return normalizeRegistrationState(structuredClone(sampleData) as AppState);
   }
 
-  return normalizeRegistrationState({
+  const normalized = normalizeRegistrationState({
     programs: programs.map((doc) =>
       stripMongoId(doc as unknown as Program & { _id?: unknown }),
     ),
@@ -126,57 +206,35 @@ async function readAppState(): Promise<AppState> {
       stripMongoId(doc as unknown as Player & { _id?: unknown }),
     ),
   });
-}
 
-async function writeAppState(state: AppState): Promise<void> {
-  const normalized = normalizeRegistrationState(state);
-
-  if (!isMongoConfigured()) {
-    const memory = getMemoryDb();
-    memory.programs = normalized.programs;
-    memory.sessions = normalized.sessions;
-    memory.players = normalized.players;
-    return;
+  // Persist a cleaned snapshot when Mongo still has duplicate business ids.
+  const hadDuplicates =
+    programs.length !== normalized.programs.length ||
+    sessions.length !== normalized.sessions.length ||
+    players.length !== normalized.players.length;
+  if (hadDuplicates) {
+    await writeAppState(normalized);
+  } else {
+    try {
+      await ensureUniqueIdIndexes();
+    } catch {
+      // Index may fail briefly if another writer is mid-repair.
+    }
   }
 
-  const db = await getDb();
-  await Promise.all([
-    db.collection(PROGRAMS).deleteMany({}),
-    db.collection(SESSIONS).deleteMany({}),
-    db.collection(PLAYERS).deleteMany({}),
-  ]);
-
-  if (normalized.programs.length > 0) {
-    await db.collection(PROGRAMS).insertMany(
-      normalized.programs as unknown as import("mongodb").OptionalId<
-        import("mongodb").Document
-      >[],
-    );
-  }
-  if (normalized.sessions.length > 0) {
-    await db.collection(SESSIONS).insertMany(
-      normalized.sessions as unknown as import("mongodb").OptionalId<
-        import("mongodb").Document
-      >[],
-    );
-  }
-  if (normalized.players.length > 0) {
-    await db.collection(PLAYERS).insertMany(
-      normalized.players as unknown as import("mongodb").OptionalId<
-        import("mongodb").Document
-      >[],
-    );
-  }
+  return normalized;
 }
 
 async function mutateAppState(
   mutator: (state: AppState) => AppState | { error: string },
 ): Promise<{ state: AppState } | { error: string }> {
-  const current = await readAppState();
-  const result = mutator(current);
-  if ("error" in result) return { error: result.error };
-  await writeAppState(result);
-  return { state: result };
+  return enqueueRegistrationWrite(async () => {
+    const current = await readAppState();
+    const result = mutator(current);
+    if ("error" in result) return { error: result.error };
+    await writeAppState(result);
+    return { state: normalizeRegistrationState(result) };
+  });
 }
 
 export async function getRegistrationState(): Promise<AppState> {
@@ -186,16 +244,18 @@ export async function getRegistrationState(): Promise<AppState> {
 export async function seedRegistrationState(
   state: AppState = sampleData,
 ): Promise<AppState> {
-  const next = normalizeRegistrationState(structuredClone(state) as AppState);
-  await writeAppState(next);
-  if (!isMongoConfigured()) {
-    resetMemoryRegistrationDb(next);
-  } else {
-    // Clear processed payments on full seed so e2e is deterministic.
-    const db = await getDb();
-    await db.collection(PROCESSED_PAYMENTS).deleteMany({});
-  }
-  return next;
+  return enqueueRegistrationWrite(async () => {
+    const next = normalizeRegistrationState(structuredClone(state) as AppState);
+    await writeAppState(next);
+    if (!isMongoConfigured()) {
+      resetMemoryRegistrationDb(next);
+    } else {
+      // Clear processed payments on full seed so e2e is deterministic.
+      const db = await getDb();
+      await db.collection(PROCESSED_PAYMENTS).deleteMany({});
+    }
+    return next;
+  });
 }
 
 export async function createProgramInDb(
@@ -228,6 +288,13 @@ export async function setProgramOpenInDb(
   });
 }
 
+export async function updateProgramInDb(
+  programId: string,
+  input: ProgramInput,
+): Promise<{ state: AppState } | { error: string }> {
+  return mutateAppState((state) => updateProgram(state, programId, input));
+}
+
 export async function createClinicInDb(
   input: SessionInput,
 ): Promise<{ state: AppState } | { error: string }> {
@@ -249,6 +316,9 @@ export async function createClinicInDb(
       week: input.week,
       label: input.label?.trim() || undefined,
       status: input.status ?? "trending",
+      capacity: input.capacity,
+      priceUsd: input.priceUsd,
+      available: input.available,
     });
   });
 }
@@ -270,6 +340,9 @@ export async function updateClinicInDb(
       week: input.week ?? existing.week,
       label: input.label?.trim() || undefined,
       status: input.status ?? existing.status,
+      capacity: input.capacity,
+      priceUsd: input.priceUsd,
+      available: input.available,
     });
   });
 }

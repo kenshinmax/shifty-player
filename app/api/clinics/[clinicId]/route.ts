@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 import {
   deleteClinicInDb,
   setClinicAvailableInDb,
@@ -15,6 +16,9 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ clinicId: string }> },
 ) {
+  const auth = await requireAdmin(request);
+  if (auth.error) return auth.error;
+
   const { clinicId } = await context.params;
   let body: PatchBody;
   try {
@@ -38,6 +42,9 @@ export async function PATCH(
     label: body.label,
     status: body.status,
     programId: body.programId,
+    capacity: body.capacity,
+    priceUsd: body.priceUsd,
+    available: body.available,
   });
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
@@ -46,9 +53,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ clinicId: string }> },
 ) {
+  const auth = await requireAdmin(request);
+  if (auth.error) return auth.error;
+
   const { clinicId } = await context.params;
   const result = await deleteClinicInDb(clinicId);
   if ("error" in result) {

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { enrollPaidInDb } from "@/lib/db/registration-repository";
+import { enrollPaidInDb, getRegistrationState } from "@/lib/db/registration-repository";
 import {
   buildMerchandiseOrder,
   parseCart,
 } from "@/lib/merchandise";
+import { getClinicTuitionCents } from "@/lib/programs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +48,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: cartResult.error }, { status: 400 });
   }
 
-  const merchandiseOrder = buildMerchandiseOrder(clinicId, cartResult);
+  const state = await getRegistrationState();
+  const clinic = state.sessions.find((session) => session.id === clinicId);
+  if (!clinic) {
+    return NextResponse.json({ error: "Clinic not found." }, { status: 404 });
+  }
+
+  const merchandiseOrder = buildMerchandiseOrder(
+    clinicId,
+    cartResult,
+    new Date().toISOString(),
+    getClinicTuitionCents(clinic),
+  );
   const result = await enrollPaidInDb(
     playerId,
     programId,

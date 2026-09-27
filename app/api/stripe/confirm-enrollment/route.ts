@@ -3,7 +3,9 @@ import { buildMerchandiseOrder } from "@/lib/merchandise";
 import {
   claimProcessedPayment,
   enrollPaidInDb,
+  getRegistrationState,
 } from "@/lib/db/registration-repository";
+import { getClinicTuitionCents } from "@/lib/programs";
 import {
   approveEnrollmentFromPaymentIntent,
   isStripeConfigured,
@@ -27,7 +29,7 @@ function requireNonEmptyString(value: unknown): string | null {
 }
 
 /**
- * Verifies PaymentIntent with Stripe, then enrolls the player (and swag order) in MongoDB.
+ * Verifies PaymentIntent with Stripe, then enrolls the player (and swag order).
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -60,11 +62,22 @@ export async function POST(request: Request) {
   }
 
   try {
+    const state = await getRegistrationState();
+    const clinic = state.sessions.find((session) => session.id === clinicId);
+    if (!clinic) {
+      return NextResponse.json(
+        { approved: false, error: "Clinic not found." },
+        { status: 404 },
+      );
+    }
+    const tuitionCents = getClinicTuitionCents(clinic);
+
     const result = await approveEnrollmentFromPaymentIntent({
       paymentIntentId,
       playerId,
       programId,
       clinicId,
+      tuitionCents,
     });
 
     if (!result.approved) {
@@ -74,7 +87,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const merchandiseOrder = buildMerchandiseOrder(clinicId, result.cart);
+    const merchandiseOrder = buildMerchandiseOrder(
+      clinicId,
+      result.cart,
+      new Date().toISOString(),
+      result.tuitionCents,
+    );
     const enrolled = await enrollPaidInDb(
       playerId,
       programId,

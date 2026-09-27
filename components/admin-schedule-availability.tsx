@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import {
   formatClinicLabel,
   formatProgramTimeframe,
   getClinicCapacity,
+  getClinicPriceUsd,
   getClinicsForProgram,
   getPlayersForProgram,
   getProgramSpots,
@@ -25,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export function AdminScheduleAvailability() {
+  const { canEdit } = useAuth();
   const {
     state,
     setProgramRegistrationOpen,
@@ -40,19 +43,21 @@ export function AdminScheduleAvailability() {
             Program & clinic availability
           </h3>
           <p className="text-sm text-muted-foreground">
-            Open a program for registration, manage clinics, and open each
-            program&apos;s roster. Parents only see open programs and available
-            clinics.
+            Toggle availability here, or open a program to edit details, clinic
+            price, capacity, and roster. Parents only see open programs and
+            available clinics.
           </p>
         </div>
-        <Link
-          href="/dashboard/programs/new"
-          className={cn(buttonVariants())}
-          data-testid="add-program-link"
-        >
-          <Plus data-icon="inline-start" />
-          Add program
-        </Link>
+        {canEdit ? (
+          <Link
+            href="/dashboard/programs/new"
+            className={cn(buttonVariants())}
+            data-testid="add-program-link"
+          >
+            <Plus data-icon="inline-start" />
+            Add program
+          </Link>
+        ) : null}
       </div>
 
       {state.programs.map((program) => {
@@ -91,32 +96,37 @@ export function AdminScheduleAvailability() {
                   </p>
                 ) : null}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/dashboard/programs/${program.id}`}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                  data-testid={`manage-program-${program.id}`}
-                >
-                  Manage roster
-                </Link>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={program.open ? "outline" : "default"}
-                  onClick={() =>
-                    setProgramRegistrationOpen(program.id, !program.open)
-                  }
-                >
-                  {program.open ? "Close program" : "Open program"}
-                </Button>
-              </div>
+              {canEdit ? (
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/dashboard/programs/${program.id}`}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                    )}
+                    data-testid={`manage-program-${program.id}`}
+                  >
+                    Manage program
+                  </Link>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={program.open ? "outline" : "default"}
+                    onClick={() =>
+                      setProgramRegistrationOpen(program.id, !program.open)
+                    }
+                  >
+                    {program.open ? "Close program" : "Open program"}
+                  </Button>
+                </div>
+              ) : null}
             </div>
 
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Clinic</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Month</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
                   <TableHead>Availability</TableHead>
                   <TableHead className="text-right">Spots</TableHead>
                   <TableHead className="text-right">Action</TableHead>
@@ -126,7 +136,7 @@ export function AdminScheduleAvailability() {
                 {clinics.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center text-muted-foreground"
                     >
                       No clinics in this program yet.
@@ -141,6 +151,12 @@ export function AdminScheduleAvailability() {
                       <TableCell>
                         {formatMonth(clinic.month)} {clinic.year}
                       </TableCell>
+                      <TableCell className="text-right">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                        }).format(getClinicPriceUsd(clinic))}
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={clinic.available ? "default" : "secondary"}
@@ -153,21 +169,25 @@ export function AdminScheduleAvailability() {
                         {getClinicCapacity(clinic)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            setClinicRegistrationAvailable(
-                              clinic.id,
-                              !clinic.available,
-                            )
-                          }
-                        >
-                          {clinic.available
-                            ? "Mark unavailable"
-                            : "Mark available"}
-                        </Button>
+                        {canEdit ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setClinicRegistrationAvailable(
+                                clinic.id,
+                                !clinic.available,
+                              )
+                            }
+                          >
+                            {clinic.available
+                              ? "Mark unavailable"
+                              : "Mark available"}
+                          </Button>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

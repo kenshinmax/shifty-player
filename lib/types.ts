@@ -42,6 +42,8 @@ export type Session = {
   available: boolean;
   /** Max player spots for this clinic. */
   capacity: number;
+  /** Clinic tuition in USD. Falls back to CLINIC_WEEKLY_FEE_USD when unset. */
+  priceUsd?: number;
 };
 
 /** Default clinic player capacity when not specified. */

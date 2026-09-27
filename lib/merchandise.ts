@@ -128,8 +128,11 @@ export function computeSwagCents(cart: CartLine[]): number {
   return total;
 }
 
-export function computeRegistrationTotalCents(cart: CartLine[]): number {
-  return CLINIC_FEE_CENTS + computeSwagCents(cart);
+export function computeRegistrationTotalCents(
+  cart: CartLine[],
+  tuitionCents: number = CLINIC_FEE_CENTS,
+): number {
+  return tuitionCents + computeSwagCents(cart);
 }
 
 /** Compact JSON for Stripe metadata (keep under 500 chars). */
@@ -168,6 +171,7 @@ export function buildMerchandiseOrder(
   clinicId: string,
   cart: CartLine[],
   paidAt: string = new Date().toISOString(),
+  tuitionCents: number = CLINIC_FEE_CENTS,
 ): MerchandiseOrder {
   const items: MerchandiseOrderItem[] = cart.map((line) => {
     const catalog = getMerchandiseItem(line.skuId)!;
@@ -183,9 +187,9 @@ export function buildMerchandiseOrder(
   return {
     clinicId,
     items,
-    tuitionCents: CLINIC_FEE_CENTS,
+    tuitionCents,
     swagCents,
-    totalCents: CLINIC_FEE_CENTS + swagCents,
+    totalCents: tuitionCents + swagCents,
     paidAt,
   };
 }

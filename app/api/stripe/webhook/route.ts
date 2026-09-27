@@ -4,7 +4,9 @@ import { buildMerchandiseOrder } from "@/lib/merchandise";
 import {
   claimProcessedPayment,
   enrollPaidInDb,
+  getRegistrationState,
 } from "@/lib/db/registration-repository";
+import { getClinicTuitionCents } from "@/lib/programs";
 import {
   evaluatePaymentIntentForEnrollment,
   getStripe,
@@ -61,15 +63,23 @@ export async function POST(request: Request) {
     const programId = paymentIntent.metadata.programId;
     const clinicId = paymentIntent.metadata.clinicId;
     if (playerId && programId && clinicId) {
+      const state = await getRegistrationState();
+      const clinic = state.sessions.find((session) => session.id === clinicId);
+      const tuitionCents = clinic
+        ? getClinicTuitionCents(clinic)
+        : undefined;
       const evaluation = evaluatePaymentIntentForEnrollment(paymentIntent, {
         playerId,
         programId,
         clinicId,
+        tuitionCents,
       });
       if (evaluation.approved) {
         const merchandiseOrder = buildMerchandiseOrder(
           clinicId,
           evaluation.cart,
+          new Date().toISOString(),
+          evaluation.tuitionCents,
         );
         await enrollPaidInDb(
           playerId,

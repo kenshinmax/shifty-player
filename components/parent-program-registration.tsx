@@ -25,9 +25,11 @@ import {
   formatClinicLabel,
   formatProgramTimeframe,
   getAvailableClinicsForProgram,
+  getClinicPriceUsd,
   getOpenPrograms,
   getRemainingClinicSpots,
 } from "@/lib/programs";
+import { formatMonth } from "@/lib/format";
 import { getChildrenForParent } from "@/lib/player-store";
 import { emitMetricsEvent } from "@/lib/metrics-client";
 import { LEVELS, type Level } from "@/lib/types";
@@ -261,6 +263,8 @@ export function ParentProgramRegistration({
                       className={selectItemClass}
                     >
                       {formatClinicLabel(clinic)} ·{" "}
+                      {formatMonth(clinic.month)} {clinic.year} · $
+                      {getClinicPriceUsd(clinic)} ·{" "}
                       {getRemainingClinicSpots(state.players, clinic)} spots
                       left
                     </SelectItem>

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatClinicLabel,
   formatProgramTimeframe,
   getActiveProgramsForPlayer,
   getAvailableClinicsForProgram,
   getClinicCapacity,
+  getClinicPriceUsd,
   getClinicsForProgram,
   getOpenPrograms,
   getRemainingClinicSpots,
+  CLINIC_WEEKLY_FEE_USD,
 } from "@/lib/programs";
 import { sampleData } from "@/lib/sample-data";
 import { DEFAULT_CLINIC_CAPACITY } from "@/lib/types";
@@ -54,6 +57,15 @@ describe("programs", () => {
     expect(getRemainingClinicSpots(sampleData.players, winter)).toBe(
       DEFAULT_CLINIC_CAPACITY - 10,
     );
+  });
+
+  it("resolves clinic price with default fallback", () => {
+    const winter = sampleData.sessions.find(
+      (session) => session.id === "session-2026-01",
+    )!;
+    expect(getClinicPriceUsd(winter)).toBe(CLINIC_WEEKLY_FEE_USD);
+    expect(getClinicPriceUsd({ ...winter, priceUsd: 500 })).toBe(500);
+    expect(formatClinicLabel(winter)).not.toMatch(/\(.*\)/);
   });
 
   it("builds active program rows with enrollment status", () => {

@@ -32,10 +32,10 @@ import {
 import { useAuth } from "@/components/auth-provider";
 import { useRegistration } from "@/components/registration-provider";
 import {
-  CLINIC_WEEKLY_FEE_USD,
   formatClinicLabel,
   formatProgramTimeframe,
   getClinicCapacity,
+  getClinicTuitionCents,
   getRemainingClinicSpots,
 } from "@/lib/programs";
 import {
@@ -48,7 +48,6 @@ import {
   type MerchandiseSize,
   type MerchandiseSkuId,
 } from "@/lib/merchandise";
-import { CLINIC_FEE_CENTS } from "@/lib/stripe-constants";
 import { emitMetricsEvent } from "@/lib/metrics-client";
 import { formatSessionStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -244,9 +243,15 @@ function SwagCartSection({ cart, onChange, disabled }: SwagCartSectionProps) {
   );
 }
 
-function OrderTotalBreakdown({ cart }: { cart: CartLine[] }) {
+function OrderTotalBreakdown({
+  cart,
+  tuitionCents,
+}: {
+  cart: CartLine[];
+  tuitionCents: number;
+}) {
   const swagCents = computeSwagCents(cart);
-  const totalCents = computeRegistrationTotalCents(cart);
+  const totalCents = computeRegistrationTotalCents(cart, tuitionCents);
 
   return (
     <dl
@@ -255,7 +260,7 @@ function OrderTotalBreakdown({ cart }: { cart: CartLine[] }) {
     >
       <div className="flex justify-between gap-4">
         <dt className="text-muted-foreground">Clinic tuition</dt>
-        <dd className="font-medium">{formatCents(CLINIC_FEE_CENTS)}</dd>
+        <dd className="font-medium">{formatCents(tuitionCents)}</dd>
       </div>
       {swagCents > 0 ? (
         <div className="flex justify-between gap-4">
@@ -669,11 +674,6 @@ export function RegistrationReview() {
   const [isPaid, setIsPaid] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
 
-  const totalCents = useMemo(
-    () => computeRegistrationTotalCents(cart),
-    [cart],
-  );
-
   const player = useMemo(
     () => state.players.find((entry) => entry.id === playerId),
     [state.players, playerId],
@@ -690,6 +690,16 @@ export function RegistrationReview() {
         ? state.programs.find((entry) => entry.id === clinic.programId)
         : undefined,
     [state.programs, clinic],
+  );
+
+  const tuitionCents = useMemo(
+    () => (clinic ? getClinicTuitionCents(clinic) : 0),
+    [clinic],
+  );
+
+  const totalCents = useMemo(
+    () => computeRegistrationTotalCents(cart, tuitionCents),
+    [cart, tuitionCents],
   );
 
   useEffect(() => {
@@ -839,12 +849,6 @@ export function RegistrationReview() {
                   {getClinicCapacity(clinic)} available
                 </dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Tuition</dt>
-                <dd className="font-heading text-lg font-semibold">
-                  {formatUsd(CLINIC_WEEKLY_FEE_USD)}
-                </dd>
-              </div>
             </dl>
           </CardContent>
         </Card>
@@ -853,7 +857,7 @@ export function RegistrationReview() {
       {paid || isPaid ? null : (
         <>
           <SwagCartSection cart={cart} onChange={setCart} />
-          <OrderTotalBreakdown cart={cart} />
+          <OrderTotalBreakdown cart={cart} tuitionCents={tuitionCents} />
         </>
       )}
 
