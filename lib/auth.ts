@@ -15,6 +15,8 @@ export type SignupInput = {
   name: string;
   email: string;
   password: string;
+  /** Parent agreed to receive marketing emails (camps, renewals, offers). */
+  marketingOptIn?: boolean;
 };
 
 /** Seed demo accounts (passwords hashed server-side on first auth seed). */

@@ -20,6 +20,7 @@ export type StoredUser = {
   email: string;
   role: "user" | "admin";
   passwordHash: string;
+  marketingOptIn?: boolean;
 };
 
 export type AuthSession = {
@@ -137,6 +138,12 @@ async function findUserById(id: string): Promise<StoredUser | null> {
   return user as StoredUser;
 }
 
+/** Public lookup used by integrations (e.g. HubSpot sync) to find a parent. */
+export async function getAuthUserById(id: string): Promise<AuthUser | null> {
+  const user = await findUserById(id);
+  return user ? toAuthUser(user) : null;
+}
+
 export async function authenticateUser(
   email: string,
   password: string,
@@ -165,6 +172,7 @@ export async function registerUser(
     email: input.email.trim().toLowerCase(),
     role: "user",
     passwordHash: await bcrypt.hash(input.password, 10),
+    marketingOptIn: input.marketingOptIn === true,
   };
 
   if (!isMongoConfigured()) {

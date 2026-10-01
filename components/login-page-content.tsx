@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -32,6 +33,7 @@ export function LoginPageContent() {
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupMarketingOptIn, setSignupMarketingOptIn] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
 
   const redirectAfterAuth = (authUser: AuthUser) => {
@@ -69,6 +71,7 @@ export function LoginPageContent() {
       name: signupName,
       email: signupEmail,
       password: signupPassword,
+      marketingOptIn: signupMarketingOptIn,
     });
     if (result.error || !result.user) {
       setSignupError(result.error ?? "Unable to create account.");
@@ -194,6 +197,25 @@ export function LoginPageContent() {
                   autoComplete="new-password"
                 />
               </div>
+
+              <label
+                htmlFor="signup-marketing-opt-in"
+                className="flex items-start gap-2 text-xs text-muted-foreground"
+              >
+                <Checkbox
+                  id="signup-marketing-opt-in"
+                  data-testid="signup-marketing-opt-in"
+                  checked={signupMarketingOptIn}
+                  onCheckedChange={(checked) =>
+                    setSignupMarketingOptIn(checked === true)
+                  }
+                  className="mt-0.5"
+                />
+                <span>
+                  Email me about upcoming camps, clinics and offers. You can
+                  unsubscribe anytime.
+                </span>
+              </label>
 
               {signupError ? (
                 <p className="text-xs text-destructive" role="alert">

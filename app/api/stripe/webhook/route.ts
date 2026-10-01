@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { syncEnrollmentToHubSpot } from "@/lib/hubspot-sync";
+import type { AppState } from "@/lib/types";
 import { recordMetricsEvent } from "@/lib/metrics";
 import { buildMerchandiseOrder } from "@/lib/merchandise";
 import {
@@ -19,7 +21,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Stripe webhook for payment_intent.succeeded.
- * Idempotently enrolls in MongoDB (including swag order) and records metrics.
+ * Idempotently enrolls in MongoDB (including swag order), records metrics and
+ * syncs HubSpot.
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -62,6 +65,7 @@ export async function POST(request: Request) {
     const playerId = paymentIntent.metadata.playerId;
     const programId = paymentIntent.metadata.programId;
     const clinicId = paymentIntent.metadata.clinicId;
+    let enrolledState: AppState | null = null;
     if (playerId && programId && clinicId) {
       const state = await getRegistrationState();
       const clinic = state.sessions.find((session) => session.id === clinicId);
@@ -81,18 +85,26 @@ export async function POST(request: Request) {
           new Date().toISOString(),
           evaluation.tuitionCents,
         );
-        await enrollPaidInDb(
+        const enrolled = await enrollPaidInDb(
           playerId,
           programId,
           clinicId,
           merchandiseOrder.paidAt,
           merchandiseOrder,
         );
+        if (!("error" in enrolled)) enrolledState = enrolled.state;
       }
     }
     const claimed = await claimProcessedPayment(paymentIntent.id);
     if (claimed) {
       recordMetricsEvent("payment_succeeded");
+      // confirm-enrollment may claim this payment first; whichever path claims it syncs HubSpot.
+      if (enrolledState) {
+        const state = enrolledState;
+        after(() =>
+          syncEnrollmentToHubSpot(state, playerId, programId, paymentIntent.id),
+        );
+      }
     }
   }
 

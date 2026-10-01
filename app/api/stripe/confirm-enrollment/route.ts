@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { syncEnrollmentToHubSpot } from "@/lib/hubspot-sync";
 import { buildMerchandiseOrder } from "@/lib/merchandise";
 import {
   claimProcessedPayment,
@@ -107,7 +108,19 @@ export async function POST(request: Request) {
       );
     }
 
-    await claimProcessedPayment(paymentIntentId);
+    // The webhook may claim this payment first; whichever path claims it syncs HubSpot.
+    const claimed = await claimProcessedPayment(paymentIntentId);
+    if (claimed) {
+      const enrolledState = enrolled.state;
+      after(() =>
+        syncEnrollmentToHubSpot(
+          enrolledState,
+          playerId,
+          programId,
+          paymentIntentId,
+        ),
+      );
+    }
 
     return NextResponse.json({ approved: true, state: enrolled.state });
   } catch (error) {
