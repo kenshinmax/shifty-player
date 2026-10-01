@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Eye,
@@ -11,14 +12,13 @@ import {
   UserPlus,
   Zap,
 } from "lucide-react";
-import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
-import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { useRegistration } from "@/components/registration-provider";
 import { Badge } from "@/components/ui/badge";
 import { Layers, Sparkles, Target } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { getPostLoginPath } from "@/lib/auth";
 import { formatMonth } from "@/lib/format";
 import { sortSessionsByRecent } from "@/lib/session-showcase";
 import { SummerScheduleCalendars } from "./summer-schedule-calendars";
@@ -95,10 +95,10 @@ const JOURNEY_STEPS = [
   },
 ] as const;
 export function HomeContent() {
-  const { canAddPlayer } = useAuth();
-  const { state, createPlayer } = useRegistration();
+  const router = useRouter();
+  const { user, canAddPlayer } = useAuth();
+  const { state } = useRegistration();
   const [loginOpen, setLoginOpen] = useState(false);
-  const [registerOpen, setRegisterOpen] = useState(false);
 
   const latestProgram = useMemo(
     () => sortSessionsByRecent(state.sessions)[0],
@@ -110,8 +110,9 @@ export function HomeContent() {
     : "the next program";
 
   const openRegisterFlow = () => {
-    if (canAddPlayer) {
-      setRegisterOpen(true);
+    // Players are added from the dashboard; signed-in users go straight there.
+    if (user) {
+      router.push(getPostLoginPath(user));
       return;
     }
     setLoginOpen(true);
@@ -313,30 +314,7 @@ export function HomeContent() {
       </section>
       <SummerScheduleCalendars />
     </div>
-      <LoginDialog
-        open={loginOpen}
-        onOpenChange={setLoginOpen}
-        onSuccess={() => setRegisterOpen(true)}
-      />
-
-      {latestProgram ? (
-        <PlayerFormDialog
-          open={registerOpen}
-          onOpenChange={setRegisterOpen}
-          sessions={state.sessions}
-          defaultSessionIds={[latestProgram.id]}
-          onSubmit={async (input) => {
-            const result = await createPlayer(input);
-            if (!result.error) {
-              toast.success(`${input.name} registered for ${programTitle}`, {
-                description:
-                  "Admins can send a payment link from the Dashboard.",
-              });
-            }
-            return result;
-          }}
-        />
-      ) : null}
+      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
     </div>
   );
 }

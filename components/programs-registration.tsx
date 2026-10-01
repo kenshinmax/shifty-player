@@ -1,23 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { UserPlus } from "lucide-react";
-import { toast } from "sonner";
+import { useMemo } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { useRegistration } from "@/components/registration-provider";
 import { SessionsShowcase } from "@/components/sessions-showcase";
 import { SessionsTable } from "@/components/sessions-table";
 import { ProgramsValues } from "@/components/programs-values";
 import { Summer2027Programs } from "@/components/summer-2027-programs";
-import { Button } from "@/components/ui/button";
 import { getLatestSession } from "@/lib/session-showcase";
 
 export function ProgramsRegistration() {
   const { canAddPlayer, canManageSessions } = useAuth();
-  const { state, createPlayer, countPlayersForSession } = useRegistration();
-
-  const [playerDialogOpen, setPlayerDialogOpen] = useState(false);
+  const { state, countPlayersForSession } = useRegistration();
 
   const latestSession = useMemo(
     () => getLatestSession(state.sessions),
@@ -70,22 +64,6 @@ export function ProgramsRegistration() {
           />
         </section>
       </div>
-
-      <PlayerFormDialog
-        open={playerDialogOpen}
-        onOpenChange={setPlayerDialogOpen}
-        sessions={state.sessions}
-        defaultSessionIds={latestSession ? [latestSession.id] : []}
-        onSubmit={async (input) => {
-          const result = await createPlayer(input);
-          if (!result.error) {
-            toast.success(`${input.name} registered`, {
-              description: "Admins can send a payment link from the Dashboard.",
-            });
-          }
-          return result;
-        }}
-      />
     </div>
   );
 }
