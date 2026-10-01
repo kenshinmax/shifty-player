@@ -16,6 +16,7 @@ import {
   setClinicAvailable,
   setProgramOpen,
   updatePlayer,
+  updateProgram,
   updateSession,
   validateChildInput,
   validateClinicRegistration,
@@ -393,5 +394,29 @@ describe("player-store", () => {
     const updated = removed.players.find((entry) => entry.id === player.id);
     expect(updated?.programIds).not.toContain(program.id);
     expect(updated?.sessionIds).not.toContain(clinic!.id);
+  });
+
+  it("renames the program's clinic label when the program is renamed", () => {
+    const input = {
+      name: "Admin Spring Camp",
+      description: "Spring camp.",
+      startDate: "2027-04-01",
+      endDate: "2027-04-30",
+      open: true,
+      spots: 50,
+    };
+    const created = addProgram(sampleData, input);
+    if ("error" in created) throw new Error(created.error);
+    const programId = created.programs[0].id;
+
+    const renamed = updateProgram(created, programId, {
+      ...input,
+      name: "Spring Camp",
+    });
+    if ("error" in renamed) throw new Error(renamed.error);
+    const clinic = renamed.sessions.find(
+      (session) => session.programId === programId,
+    );
+    expect(clinic?.label).toBe("Spring Camp");
   });
 });

@@ -154,21 +154,29 @@ export function updateProgram(
 ): AppState | { error: string } {
   const error = validateProgramInput(input);
   if (error) return { error };
-  if (!state.programs.some((program) => program.id === programId)) {
+  const existing = state.programs.find((program) => program.id === programId);
+  if (!existing) {
     return { error: "Program not found." };
   }
 
   const start = parseIsoDateParts(input.startDate)!;
   const end = parseIsoDateParts(input.endDate)!;
   const spots = input.spots > 0 ? input.spots : DEFAULT_CLINIC_CAPACITY;
+  const name = input.name.trim();
 
   return {
     ...state,
+    // Clinics created with the program carry its name as their label; keep them in sync on rename.
+    sessions: state.sessions.map((session) =>
+      session.programId === programId && session.label === existing.name
+        ? { ...session, label: name }
+        : session,
+    ),
     programs: state.programs.map((program) =>
       program.id === programId
         ? {
             ...program,
-            name: input.name.trim(),
+            name,
             description: input.description.trim(),
             year: start.year,
             open: input.open,
