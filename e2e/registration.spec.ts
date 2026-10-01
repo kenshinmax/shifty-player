@@ -181,14 +181,14 @@ test("admin dashboard players and payment links", async ({ page }) => {
   await page.getByTestId("dashboard-nav-programs").click();
   await page.getByTestId("add-program-link").click();
   await expect(page).toHaveURL(/\/dashboard\/programs\/new$/);
-  await page.locator("#program-name").fill("Admin Spring Camp");
+  await page.locator("#program-name").fill("Spring Camp");
   await page.locator("#program-description").fill("Admin-created spring program.");
   await page.locator("#program-start-date").fill("2027-04-01");
   await page.locator("#program-end-date").fill("2027-04-30");
   await page.locator("#program-spots").fill("50");
   await page.getByRole("button", { name: "Create program" }).click();
   await expect(page.getByTestId("program-detail")).toContainText(
-    "Admin Spring Camp",
+    "Spring Camp",
   );
   await expect(page.getByTestId("program-roster")).toContainText(
     "No players registered yet.",
@@ -254,9 +254,7 @@ test("register now opens login page with signup for guests", async ({
   await page.getByTestId("login-form-card").getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL(/\/player$/);
-  await expect(
-    page.getByRole("heading", { name: "Parent Dashboard" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 });
 
 test("quick signup on login page creates a parent account", async ({
@@ -273,6 +271,27 @@ test("quick signup on login page creates a parent account", async ({
   await expect(page).toHaveURL(/\/player$/);
   await expect(page.getByRole("button", { name: "Account menu" })).toContainText(
     "Casey Parent",
+  );
+});
+
+test("home register creates an account and lands on the dashboard", async ({ page }) => {
+  await clearClientState(page);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Sign in to register" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Create an account" }).click();
+  await expect(page.getByTestId("login-dialog-signup")).toBeVisible();
+
+  await page.locator("#dialog-signup-name").fill("Riley Newparent");
+  await page.locator("#dialog-signup-email").fill("riley.newparent@example.com");
+  await page.locator("#dialog-signup-password").fill("riley");
+  await dialog.getByRole("button", { name: "Create account" }).click();
+
+  await expect(page).toHaveURL(/\/player$/);
+  await expect(page.getByRole("dialog", { name: "Add Player" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Account menu" })).toContainText(
+    "Riley Newparent",
   );
 });
 

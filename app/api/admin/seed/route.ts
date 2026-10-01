@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 
 /** Dev/test helper: reset registration collections to sample data. */
 export async function POST() {
+  // Unauthenticated and destructive, so it must never be reachable in production.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
   try {
     const state = await seedRegistrationState(sampleData);
     return NextResponse.json({ state });

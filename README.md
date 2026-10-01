@@ -14,6 +14,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ![Shifty player registration](images/shifty-programs.png)
 
+## Tests
+
+- `npm test` — Vitest unit tests.
+- `npm run test:e2e` — Playwright. It starts its own dev server on port 3100 (build output in `.next-e2e/`), so it can run while `npm run dev` is up on 3000. That server ignores the MongoDB, HubSpot and Stripe values in `.env.local`: tests use the in-memory store and demo checkout, and never touch real data.
+
 ## MongoDB persistence
 
 Registration data (programs, clinics, players) and auth accounts live in **MongoDB** when `MONGODB_URI` is set. Without it, the server uses an **in-memory** store (fine for local/CI; data resets when the process restarts).
@@ -24,7 +29,7 @@ Registration data (programs, clinics, players) and auth accounts live in **Mongo
    - `MONGODB_URI` — Atlas connection string
    - `MONGODB_DB` — database name (default `shifty`)
 4. Restart `npm run dev`. The first request seeds sample programs/players and demo users (`user@demo.com` / `admin@demo.com`).
-5. Reset data anytime: `POST /api/admin/seed`
+5. Reset data anytime in development: `POST /api/admin/seed` (disabled in production)
 
 Auth uses httpOnly session cookies (`shifty_session`); passwords are bcrypt-hashed in the `users` collection.
 
@@ -113,3 +118,25 @@ Keep `npm run dev` running so `GET http://localhost:3000/api/metrics` works on t
 | Pod inside minikube | `host.minikube.internal:3000` |
 
 **Note:** Counters live in the Next.js process memory and reset when `next dev` restarts. This is for local/demo observability, not durable analytics.
+
+## HubSpot CRM sync
+
+Parents are synced to HubSpot (free CRM works) so you can run targeted marketing for renewals and upsells.
+
+| When | What is sent |
+| --- | --- |
+| Parent signs up | Contact created/updated by email: name, `lifecyclestage=lead`, `shifty_marketing_opt_in`, `shifty_signup_date` |
+| Clinic payment succeeds (webhook or confirm) | `lifecyclestage=customer`, player count, player grades, last program, last payment date and amount |
+| Clinic payment succeeds (webhook or confirm) | Closed-won deal on the parent's contact: "Program – Surname", amount (tuition + swag), close date, program. Keyed by Stripe payment ID (`shifty_payment_id`), so retries never duplicate it |
+
+Children's names, emails and other details are never sent to HubSpot.
+
+**Setup**
+
+1. In HubSpot: Settings → Integrations → Private Apps → create an app with scopes `crm.objects.contacts.read`, `crm.objects.contacts.write`, `crm.schemas.contacts.write`, `crm.objects.deals.read`, `crm.objects.deals.write`, `crm.schemas.deals.write`.
+2. Add `HUBSPOT_ACCESS_TOKEN` to `.env.local` (and your hosting env vars).
+3. Create the custom properties once: `HUBSPOT_ACCESS_TOKEN=pat-... node scripts/hubspot-setup.mjs`
+4. Deals go to the default pipeline's `closedwon` stage. To use a dedicated "Registrations" pipeline, set `HUBSPOT_DEAL_PIPELINE` and `HUBSPOT_DEAL_STAGE` to its pipeline and closed-won stage IDs (Settings → Objects → Deals → Pipelines).
+5. Build lists in HubSpot, e.g. *opted in AND lifecycle = lead* (signed up, never paid), *last payment date more than 10 months ago* (renewal/win-back), *player count ≥ 2* (sibling offers).
+
+Syncs run with `after()` so they never slow down or break signup/checkout; failures are logged. Without the token the sync is skipped.
