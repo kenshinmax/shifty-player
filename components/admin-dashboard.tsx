@@ -9,6 +9,7 @@ import { FinancialsPlayersTable } from "@/components/financials-players-table";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { PlayersRosterGrid } from "@/components/players-roster-grid";
 import { RegistrationInsights } from "@/components/registration-insights";
+import { StatTile } from "@/components/stat-tile";
 import { useRegistration } from "@/components/registration-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,8 +56,8 @@ function NavButtons({
                 ? "px-3 py-2.5 text-left"
                 : "flex-col justify-center gap-1 px-1 py-2 text-[11px]",
               isActive
-                ? "bg-zinc-900 text-white"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-ink text-ink-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-brand-soft hover:text-brand-ink",
             )}
             aria-current={isActive ? "page" : undefined}
           >
@@ -189,12 +190,12 @@ export function AdminDashboard() {
         </div>
       ) : null}
 
-      <div className="flex gap-8">
+      <div className="flex gap-8 rounded-3xl bg-canvas p-4 ring-1 ring-canvas-ring sm:p-6">
         <aside
           data-testid="dashboard-sidebar"
           className="sticky top-24 hidden h-fit w-56 shrink-0 space-y-4 md:block"
         >
-          <div className="rounded-2xl border bg-background p-3 shadow-sm ring-1 ring-foreground/5">
+          <div className="rounded-2xl border bg-background p-3 shadow-sm">
             <p className="px-3 pb-2 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
               Sections
             </p>
@@ -207,7 +208,7 @@ export function AdminDashboard() {
         </aside>
 
         <div className="min-w-0 flex-1 space-y-6">
-          <div className="space-y-1">
+          <div className="space-y-1 border-l-4 border-brand pl-4">
             <h2 className="font-heading text-2xl font-semibold tracking-tight">
               {activeNav.label}
             </h2>
@@ -293,8 +294,8 @@ export function AdminDashboard() {
                 paymentLinksSent={sentCount}
               />
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/40 px-5 py-4">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-border bg-brand-soft px-5 py-4">
+                <p className="text-sm font-medium text-brand-ink">
                   Ready to grow the roster for {upcomingProgramLabel}?
                 </p>
                 <Button onClick={() => selectSection("rosters")}>
@@ -308,26 +309,21 @@ export function AdminDashboard() {
           {activeSection === "financials" ? (
             <section className="space-y-6" data-testid="dashboard-financials">
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">Players</p>
-                  <p className="mt-1 font-heading text-3xl font-semibold">
-                    {state.players.length}
-                  </p>
-                </div>
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">
-                    Payment links sent
-                  </p>
-                  <p className="mt-1 font-heading text-3xl font-semibold">
-                    {sentCount}
-                  </p>
-                </div>
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="mt-1 font-heading text-3xl font-semibold">
-                    {pendingCount}
-                  </p>
-                </div>
+                <StatTile
+                  label="Players"
+                  value={state.players.length}
+                  tone="info"
+                />
+                <StatTile
+                  label="Payment links sent"
+                  value={sentCount}
+                  tone="success"
+                />
+                <StatTile
+                  label="Pending"
+                  value={pendingCount}
+                  tone="warning"
+                />
               </div>
               <FinancialsPlayersTable
                 players={state.players}
@@ -349,7 +345,7 @@ export function AdminDashboard() {
               className="space-y-4"
               data-testid="dashboard-communications"
             >
-              <div className="rounded-2xl border border-dashed p-8">
+              <div className="rounded-2xl border border-dashed border-border bg-background p-8">
                 <h3 className="font-heading text-lg font-medium">
                   Family updates
                 </h3>
@@ -360,22 +356,18 @@ export function AdminDashboard() {
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">
-                    Payment notices ready
-                  </p>
-                  <p className="mt-1 font-heading text-2xl font-semibold">
-                    {pendingCount}
-                  </p>
-                </div>
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">
-                    Links already sent
-                  </p>
-                  <p className="mt-1 font-heading text-2xl font-semibold">
-                    {sentCount}
-                  </p>
-                </div>
+                <StatTile
+                  label="Payment notices ready"
+                  value={pendingCount}
+                  tone="warning"
+                  size="md"
+                />
+                <StatTile
+                  label="Links already sent"
+                  value={sentCount}
+                  tone="success"
+                  size="md"
+                />
               </div>
             </section>
           ) : null}
@@ -395,26 +387,21 @@ export function AdminDashboard() {
                 </Button>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">Sessions</p>
-                  <p className="mt-1 font-heading text-3xl font-semibold">
-                    {state.sessions.length}
-                  </p>
-                </div>
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">Players</p>
-                  <p className="mt-1 font-heading text-3xl font-semibold">
-                    {state.players.length}
-                  </p>
-                </div>
-                <div className="rounded-xl border p-5">
-                  <p className="text-sm text-muted-foreground">
-                    Payment links sent
-                  </p>
-                  <p className="mt-1 font-heading text-3xl font-semibold">
-                    {sentCount}
-                  </p>
-                </div>
+                <StatTile
+                  label="Sessions"
+                  value={state.sessions.length}
+                  tone="accent"
+                />
+                <StatTile
+                  label="Players"
+                  value={state.players.length}
+                  tone="info"
+                />
+                <StatTile
+                  label="Payment links sent"
+                  value={sentCount}
+                  tone="success"
+                />
               </div>
               <PlayersRosterGrid
                 players={state.players}

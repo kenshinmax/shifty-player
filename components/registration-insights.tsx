@@ -1,3 +1,4 @@
+import { StatTile } from "@/components/stat-tile";
 import { cn } from "@/lib/utils";
 
 const REGISTRATION_FEE = 175;
@@ -83,8 +84,8 @@ function PlayerTrendLine({
     >
       <defs>
         <linearGradient id="player-trend-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="oklch(0.205 0 0)" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="oklch(0.205 0 0)" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--chart-1)" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="var(--chart-1)" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -107,7 +108,7 @@ function PlayerTrendLine({
       <path
         d={linePath}
         fill="none"
-        className="stroke-foreground"
+        className="stroke-brand-strong"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -119,7 +120,7 @@ function PlayerTrendLine({
             cx={point.x}
             cy={point.y}
             r="4"
-            className="fill-background stroke-foreground"
+            className="fill-background stroke-brand-strong"
             strokeWidth="2"
           />
           <text
@@ -164,9 +165,9 @@ function WeeklyAttendanceBars({
   const barWidth = (chartWidth - gap * (weeks.length - 1)) / weeks.length;
 
   const monthColors: Record<string, string> = {
-    June: "fill-zinc-700",
-    July: "fill-zinc-900",
-    August: "fill-zinc-500",
+    June: "fill-chart-1",
+    July: "fill-chart-2",
+    August: "fill-chart-3",
   };
 
   return (
@@ -203,7 +204,7 @@ function WeeklyAttendanceBars({
               width={barWidth}
               height={barHeight}
               rx="3"
-              className={cn(monthColors[week.month] ?? "fill-zinc-800")}
+              className={cn(monthColors[week.month] ?? "fill-chart-5")}
             />
             <text
               x={x + barWidth / 2}
@@ -247,16 +248,19 @@ export function RegistrationInsights({
   const cards = [
     {
       label: "Revenue collected",
+      tone: "success",
       value: formatCurrency(revenueCollected),
       detail: `${paymentLinksSent} paid registration${paymentLinksSent === 1 ? "" : "s"}`,
     },
     {
       label: "Number of teams",
+      tone: "accent",
       value: String(teamCount),
       detail: "Based on current roster size",
     },
     {
       label: "Registered vs roster",
+      tone: "info",
       value: `${registeredPlayers} / ${rosterPlayers}`,
       detail:
         registeredPlayers === rosterPlayers
@@ -277,24 +281,20 @@ export function RegistrationInsights({
 
       <div className="grid gap-3 sm:grid-cols-3">
         {cards.map((card) => (
-          <article
+          <StatTile
             key={card.label}
-            className="rounded-xl border bg-background p-4 shadow-sm ring-1 ring-foreground/5"
-          >
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {card.label}
-            </p>
-            <p className="mt-2 font-heading text-2xl font-semibold tracking-tight">
-              {card.value}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">{card.detail}</p>
-          </article>
+            label={card.label}
+            value={card.value}
+            detail={card.detail}
+            tone={card.tone}
+            size="md"
+          />
         ))}
       </div>
 
       <article
         data-testid="registration-player-trend"
-        className="rounded-xl border bg-background p-4 shadow-sm ring-1 ring-foreground/5 sm:p-5"
+        className="rounded-xl border bg-background p-4 shadow-sm sm:p-5"
       >
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
@@ -325,7 +325,7 @@ export function RegistrationInsights({
                   <span
                     className={cn(
                       "font-medium",
-                      delta >= 0 ? "text-emerald-700" : "text-red-700",
+                      delta >= 0 ? "text-tone-success-ink" : "text-red-700",
                     )}
                   >
                     {delta >= 0 ? `+${delta}` : delta}
@@ -339,7 +339,7 @@ export function RegistrationInsights({
 
       <article
         data-testid="registration-attendance-bars"
-        className="rounded-xl border bg-background p-4 shadow-sm ring-1 ring-foreground/5 sm:p-5"
+        className="rounded-xl border bg-background p-4 shadow-sm sm:p-5"
       >
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
@@ -352,15 +352,15 @@ export function RegistrationInsights({
           </div>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-zinc-700" aria-hidden />
+              <span className="size-2.5 rounded-sm bg-brand-soft0" aria-hidden />
               June
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-zinc-900" aria-hidden />
+              <span className="size-2.5 rounded-sm bg-chart-2" aria-hidden />
               July
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-zinc-500" aria-hidden />
+              <span className="size-2.5 rounded-sm bg-chart-3" aria-hidden />
               August
             </span>
           </div>

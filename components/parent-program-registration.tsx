@@ -138,14 +138,14 @@ export function ParentProgramRegistration({
   const selectItemClass = "py-2.5 pl-3 pr-8 text-base";
   const selectContentClass = "min-w-[var(--anchor-width)] text-base";
   const fieldPanelClass =
-    "space-y-2 rounded-xl border border-zinc-200 bg-zinc-100/80 p-4";
+    "space-y-2 rounded-xl border border-border bg-surface-muted p-4";
 
   return (
     <Card
       data-testid="parent-program-registration"
-      className="border-zinc-200 bg-zinc-50 ring-zinc-200/80"
+      className="bg-background pt-0 shadow-sm"
     >
-      <CardHeader className="border-b border-zinc-200/80 bg-zinc-100/60">
+      <CardHeader className="border-t-4 border-b border-t-brand border-b-brand-border bg-brand-soft pt-4">
         <CardTitle className="font-heading text-xl">
           Register for a program
         </CardTitle>
@@ -276,7 +276,7 @@ export function ParentProgramRegistration({
 
           {selectedProgram ? (
             <p
-              className="rounded-lg border border-zinc-200 bg-zinc-100/70 px-4 py-3 text-sm text-zinc-700"
+              className="rounded-lg border border-brand-border bg-brand-soft px-4 py-3 text-sm text-brand-ink"
               data-testid="program-clinic-summary"
             >
               {selectedProgram.name} ({formatProgramTimeframe(selectedProgram)}
@@ -306,7 +306,7 @@ export function ParentProgramRegistration({
         {showAddChild ? (
           <form
             onSubmit={handleAddChild}
-            className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-100/80 p-5"
+            className="space-y-4 rounded-xl border border-border bg-surface-muted p-5"
             data-testid="add-child-form"
           >
             <p className="text-base font-semibold">Add a new child</p>

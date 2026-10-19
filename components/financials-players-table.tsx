@@ -117,7 +117,7 @@ export function FinancialsPlayersTable({
       <div
         role="tablist"
         aria-label="Filter by payment status"
-        className="inline-flex flex-wrap gap-1 rounded-lg border bg-muted/40 p-1"
+        className="inline-flex flex-wrap gap-1 rounded-lg border bg-background p-1 shadow-sm"
         data-testid="financials-status-tabs"
       >
         {FILTER_TABS.map((tab) => {
@@ -133,7 +133,7 @@ export function FinancialsPlayersTable({
               className={cn(
                 "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-zinc-900 text-white"
+                  ? "bg-ink text-ink-foreground"
                   : "text-muted-foreground hover:bg-background hover:text-foreground",
               )}
             >
@@ -146,130 +146,132 @@ export function FinancialsPlayersTable({
         })}
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Player</TableHead>
-            <TableHead>Programs</TableHead>
-            <TableHead>Transaction</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visiblePlayers.length === 0 ? (
+      <div className="overflow-hidden rounded-xl border bg-background shadow-sm">
+        <Table>
+          <TableHeader className="bg-surface-muted">
             <TableRow>
-              <TableCell
-                colSpan={5}
-                className="h-16 text-center text-muted-foreground"
-              >
-                {filter === "paid"
-                  ? "No paid transactions yet."
-                  : filter === "unpaid"
-                    ? "No unpaid players."
-                    : "No players registered yet."}
-              </TableCell>
+              <TableHead>Player</TableHead>
+              <TableHead>Programs</TableHead>
+              <TableHead>Transaction</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
-          ) : (
-            visiblePlayers.map((player) => {
-              const paid = isPlayerPaid(player);
-              const amount = getPlayerPaymentAmount(player);
-              const tenure = getPlayerTenure(player, programs);
-              const sessionBadges = getSessionBadges(player, sessions);
-              const programNames = player.programIds
-                .map(
-                  (programId) =>
-                    programs.find((program) => program.id === programId)?.name,
-                )
-                .filter((name): name is string => Boolean(name));
-
-              return (
-                <TableRow
-                  key={player.id}
-                  className="align-top"
-                  data-testid={`financials-player-row-${player.id}`}
+          </TableHeader>
+          <TableBody>
+            {visiblePlayers.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="h-16 text-center text-muted-foreground"
                 >
-                  <TwoLineCell
-                    primary={player.name}
-                    secondary={
-                      <>
-                        {player.email}
-                        <span className="mx-1.5 text-border">·</span>
-                        Grade {player.grade}
-                        <span className="mx-1.5 text-border">·</span>
-                        <span className="capitalize">{player.level}</span>
-                      </>
-                    }
-                  />
-                  <TwoLineCell
-                    className="whitespace-normal"
-                    primary={
-                      programNames.length > 0
-                        ? programNames.join(", ")
-                        : "No program"
-                    }
-                    secondary={
-                      sessionBadges.length > 0 ? (
-                        <span className="flex flex-wrap gap-1">
-                          {sessionBadges.map((session) => (
-                            <Badge key={session.id} variant="secondary">
-                              {formatSessionLabel(
-                                session.year,
-                                session.month,
-                                session.label,
-                              )}
-                            </Badge>
-                          ))}
-                        </span>
-                      ) : (
-                        "No clinics"
-                      )
-                    }
-                  />
-                  <TwoLineCell
-                    primary={formatUsdAmount(amount)}
-                    secondary={
-                      paid
-                        ? `Paid ${formatTransactionDate(player.paymentLinkSentAt)}`
-                        : "Transaction pending"
-                    }
-                  />
-                  <TwoLineCell
-                    primary={
-                      <Badge
-                        variant={
-                          tenure === "returning" ? "secondary" : "outline"
-                        }
-                      >
-                        {tenure === "returning" ? "Returning" : "New player"}
-                      </Badge>
-                    }
-                    secondary={
-                      paid ? (
-                        <Badge variant="secondary">Enrolled / Paid</Badge>
-                      ) : (
-                        <Badge variant="outline">Unpaid</Badge>
-                      )
-                    }
-                  />
-                  <TableCell className="text-right">
-                    <div className="flex min-h-12 items-center justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSendPayment(player)}
-                      >
-                        <Link2 data-icon="inline-start" />
-                        {paid ? "Resend" : "Send link"}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
+                  {filter === "paid"
+                    ? "No paid transactions yet."
+                    : filter === "unpaid"
+                      ? "No unpaid players."
+                      : "No players registered yet."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              visiblePlayers.map((player) => {
+                const paid = isPlayerPaid(player);
+                const amount = getPlayerPaymentAmount(player);
+                const tenure = getPlayerTenure(player, programs);
+                const sessionBadges = getSessionBadges(player, sessions);
+                const programNames = player.programIds
+                  .map(
+                    (programId) =>
+                      programs.find((program) => program.id === programId)?.name,
+                  )
+                  .filter((name): name is string => Boolean(name));
+
+                return (
+                  <TableRow
+                    key={player.id}
+                    className="align-top"
+                    data-testid={`financials-player-row-${player.id}`}
+                  >
+                    <TwoLineCell
+                      primary={player.name}
+                      secondary={
+                        <>
+                          {player.email}
+                          <span className="mx-1.5 text-border">·</span>
+                          Grade {player.grade}
+                          <span className="mx-1.5 text-border">·</span>
+                          <span className="capitalize">{player.level}</span>
+                        </>
+                      }
+                    />
+                    <TwoLineCell
+                      className="whitespace-normal"
+                      primary={
+                        programNames.length > 0
+                          ? programNames.join(", ")
+                          : "No program"
+                      }
+                      secondary={
+                        sessionBadges.length > 0 ? (
+                          <span className="flex flex-wrap gap-1">
+                            {sessionBadges.map((session) => (
+                              <Badge key={session.id} variant="secondary">
+                                {formatSessionLabel(
+                                  session.year,
+                                  session.month,
+                                  session.label,
+                                )}
+                              </Badge>
+                            ))}
+                          </span>
+                        ) : (
+                          "No clinics"
+                        )
+                      }
+                    />
+                    <TwoLineCell
+                      primary={formatUsdAmount(amount)}
+                      secondary={
+                        paid
+                          ? `Paid ${formatTransactionDate(player.paymentLinkSentAt)}`
+                          : "Transaction pending"
+                      }
+                    />
+                    <TwoLineCell
+                      primary={
+                        <Badge
+                          variant={
+                            tenure === "returning" ? "secondary" : "outline"
+                          }
+                        >
+                          {tenure === "returning" ? "Returning" : "New player"}
+                        </Badge>
+                      }
+                      secondary={
+                        paid ? (
+                          <Badge variant="secondary">Enrolled / Paid</Badge>
+                        ) : (
+                          <Badge variant="outline">Unpaid</Badge>
+                        )
+                      }
+                    />
+                    <TableCell className="text-right">
+                      <div className="flex min-h-12 items-center justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendPayment(player)}
+                        >
+                          <Link2 data-icon="inline-start" />
+                          {paid ? "Resend" : "Send link"}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

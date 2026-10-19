@@ -47,56 +47,58 @@ export function ActiveProgramsSection({
 
   return (
     <section className="space-y-4" data-testid="active-programs">
-      <div>
+      <div className="border-l-4 border-brand pl-4">
         <h2 className="font-heading text-xl font-medium">Active programs</h2>
         <p className="text-sm text-muted-foreground">
           Current program and clinic registrations for all of your children.
         </p>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Player</TableHead>
-            <TableHead>Program</TableHead>
-            <TableHead>Clinic</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {activePrograms.length === 0 ? (
+      <div className="overflow-hidden rounded-xl border bg-background shadow-sm">
+        <Table>
+          <TableHeader className="bg-surface-muted">
             <TableRow>
-              <TableCell
-                colSpan={6}
-                className="text-center text-muted-foreground"
-              >
-                No active programs yet. Register a child for an open program to
-                get started.
-              </TableCell>
+              <TableHead>Date</TableHead>
+              <TableHead>Player</TableHead>
+              <TableHead>Program</TableHead>
+              <TableHead>Clinic</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Status</TableHead>
             </TableRow>
-          ) : (
-            activePrograms.map((program) => (
-              <TableRow key={program.id}>
-                <TableCell className="font-medium">{program.date}</TableCell>
-                <TableCell>{program.playerName}</TableCell>
-                <TableCell>{program.programName}</TableCell>
-                <TableCell>{program.clinicName}</TableCell>
-                <TableCell>{program.location}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={statusBadgeVariant(program.status)}
-                    className="capitalize"
-                  >
-                    {program.status}
-                  </Badge>
+          </TableHeader>
+          <TableBody>
+            {activePrograms.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground"
+                >
+                  No active programs yet. Register a child for an open program to
+                  get started.
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              activePrograms.map((program) => (
+                <TableRow key={program.id}>
+                  <TableCell className="font-medium">{program.date}</TableCell>
+                  <TableCell>{program.playerName}</TableCell>
+                  <TableCell>{program.programName}</TableCell>
+                  <TableCell>{program.clinicName}</TableCell>
+                  <TableCell>{program.location}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={statusBadgeVariant(program.status)}
+                      className="capitalize"
+                    >
+                      {program.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </section>
   );
 }

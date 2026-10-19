@@ -6,10 +6,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
+  CalendarDays,
   Eye,
   LogIn,
+  MessagesSquare,
   Swords,
+  Trophy,
   UserPlus,
+  Users,
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
@@ -92,6 +96,32 @@ const JOURNEY_STEPS = [
     accent: "from-amber-400/25 via-transparent to-transparent",
     sizeClass: "min-h-[23rem] lg:min-h-[27rem]",
     titleClass: "text-3xl sm:text-4xl lg:text-5xl",
+  },
+] as const;
+const PLATFORM_FEATURES = [
+  {
+    title: "Team Rosters and Player Profiles",
+    description:
+      "Give coaches and parents a single place to view rosters, track player details, manage contact info, and keep medical or emergency information accessible during practices and games.",
+    icon: Users,
+  },
+  {
+    title: "Game and Practice Scheduling",
+    description:
+      "Build a scheduling system that handles recurring practices, tournament brackets, and game-day logistics. Parents get notifications, and coaches can adjust on the fly without mass texts or emails.",
+    icon: CalendarDays,
+  },
+  {
+    title: "Real Time Score and Stat Tracking",
+    description:
+      "Let volunteers or coaches log scores, stats, and highlights during games. Parents who can't attend stay in the loop, and players get to see their progress across an entire season.",
+    icon: Trophy,
+  },
+  {
+    title: "Team Communication Hub",
+    description:
+      "Replace scattered group chats with organized messaging. Announcements reach the right people, and coaches can communicate with parents or assistant coaches without anything getting lost.",
+    icon: MessagesSquare,
   },
 ] as const;
 export function HomeContent() {
@@ -312,6 +342,47 @@ export function HomeContent() {
           </div>
         </div>
       </section>
+
+      {/* Section 3 — Platform features */}
+      <section
+        data-testid="home-platform"
+        className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 bg-canvas"
+      >
+        <div className="mx-auto max-w-6xl space-y-10 px-6 py-16 lg:py-24">
+          <div className="space-y-3 text-center">
+            <h2 className="font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Shifty Player Platform
+            </h2>
+            <p className="text-base text-muted-foreground sm:text-lg">
+              What your youth sports app can do
+            </p>
+          </div>
+
+          <ul className="space-y-4">
+            {PLATFORM_FEATURES.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <li key={feature.title}>
+                  <article className="flex gap-4 rounded-xl border border-l-4 border-l-brand bg-background p-5 shadow-sm sm:p-6">
+                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-brand-border bg-brand-soft text-brand-ink">
+                      <Icon className="size-4" aria-hidden />
+                    </span>
+                    <div className="space-y-1.5">
+                      <h3 className="font-heading text-lg font-medium">
+                        {feature.title}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </article>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </section>
+
       <SummerScheduleCalendars />
     </div>
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />

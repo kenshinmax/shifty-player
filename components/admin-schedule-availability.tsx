@@ -71,7 +71,7 @@ export function AdminScheduleAvailability() {
         return (
           <section
             key={program.id}
-            className="space-y-3 rounded-xl border p-4"
+            className="space-y-3 rounded-xl border bg-background p-4 shadow-sm"
             data-testid={`admin-program-${program.id}`}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -122,7 +122,7 @@ export function AdminScheduleAvailability() {
             </div>
 
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-surface-muted">
                 <TableRow>
                   <TableHead>Clinic</TableHead>
                   <TableHead>Month</TableHead>

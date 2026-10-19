@@ -6,6 +6,7 @@ import { ActiveProgramsSection } from "@/components/active-programs-section";
 import { ParentChildrenOverview } from "@/components/parent-children-overview";
 import { ParentProgramRegistration } from "@/components/parent-program-registration";
 import { useAuth } from "@/components/auth-provider";
+import { StatTile } from "@/components/stat-tile";
 import {
   Table,
   TableBody,
@@ -87,107 +88,105 @@ export default function PlayerDashboardPage() {
         </p>
       </header>
 
-      <ParentProgramRegistration />
+      <div className="space-y-8 rounded-3xl bg-canvas p-4 ring-1 ring-canvas-ring sm:p-6">
+        <ParentProgramRegistration />
 
-      <ParentChildrenOverview parentUserId={user.id} />
+        <ParentChildrenOverview parentUserId={user.id} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border p-6">
-          <p className="text-sm text-muted-foreground">Completed programs</p>
-          <p className="mt-1 font-heading text-3xl font-semibold">
-            {completedPrograms.length}
-          </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatTile
+            label="Completed programs"
+            value={completedPrograms.length}
+            tone="accent"
+          />
+          <StatTile label="Games played" value={totalGames} tone="success" />
         </div>
-        <div className="rounded-xl border p-6">
-          <p className="text-sm text-muted-foreground">Games played</p>
-          <p className="mt-1 font-heading text-3xl font-semibold">
-            {totalGames}
-          </p>
-        </div>
-      </div>
 
-      <ActiveProgramsSection
-        childrenPlayers={children}
-        programs={state.programs}
-        sessions={state.sessions}
-      />
+        <ActiveProgramsSection
+          childrenPlayers={children}
+          programs={state.programs}
+          sessions={state.sessions}
+        />
 
-      <section className="space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="font-heading text-xl font-medium">
-              Completed programs
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Date, grade level, and games played for each finished program.
-            </p>
-          </div>
-          {children.length > 0 ? (
-            <div className="space-y-2 sm:w-56">
-              <Label htmlFor="history-child">View history for</Label>
-              <Select
-                value={historyChildId || undefined}
-                onValueChange={(value) => setHistoryChildId(value ?? "")}
-              >
-                <SelectTrigger id="history-child">
-                  <SelectValue placeholder="Select a child" />
-                </SelectTrigger>
-                <SelectContent>
-                  {children.map((child) => (
-                    <SelectItem key={child.id} value={child.id}>
-                      {child.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <section className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="border-l-4 border-brand pl-4">
+              <h2 className="font-heading text-xl font-medium">
+                Completed programs
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Date, grade level, and games played for each finished program.
+              </p>
             </div>
-          ) : null}
-        </div>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Program</TableHead>
-              <TableHead>Grade</TableHead>
-              <TableHead>Level</TableHead>
-              <TableHead className="text-right">Games played</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {completedPrograms.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center text-muted-foreground"
+            {children.length > 0 ? (
+              <div className="space-y-2 sm:w-56">
+                <Label htmlFor="history-child">View history for</Label>
+                <Select
+                  value={historyChildId || undefined}
+                  onValueChange={(value) => setHistoryChildId(value ?? "")}
                 >
-                  {historyChild
-                    ? `${historyChild.name} has no completed programs yet. Register for a program to get started.`
-                    : "Add a player and register for a program to get started."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              completedPrograms.map((program) => (
-                <TableRow key={program.id}>
-                  <TableCell className="font-medium">
-                    {formatProgramDate(program.date)}
-                  </TableCell>
-                  <TableCell>{program.programLabel}</TableCell>
-                  <TableCell>{program.grade}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="capitalize">
-                      {program.level}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {program.gamesPlayed}
-                  </TableCell>
+                  <SelectTrigger id="history-child">
+                    <SelectValue placeholder="Select a child" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {children.map((child) => (
+                      <SelectItem key={child.id} value={child.id}>
+                        {child.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="overflow-hidden rounded-xl border bg-background shadow-sm">
+            <Table>
+              <TableHeader className="bg-surface-muted">
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Program</TableHead>
+                  <TableHead>Grade</TableHead>
+                  <TableHead>Level</TableHead>
+                  <TableHead className="text-right">Games played</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </section>
+              </TableHeader>
+              <TableBody>
+                {completedPrograms.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="text-center text-muted-foreground"
+                    >
+                      {historyChild
+                        ? `${historyChild.name} has no completed programs yet. Register for a program to get started.`
+                        : "Add a player and register for a program to get started."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  completedPrograms.map((program) => (
+                    <TableRow key={program.id}>
+                      <TableCell className="font-medium">
+                        {formatProgramDate(program.date)}
+                      </TableCell>
+                      <TableCell>{program.programLabel}</TableCell>
+                      <TableCell>{program.grade}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">
+                          {program.level}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {program.gamesPlayed}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

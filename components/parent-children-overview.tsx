@@ -60,7 +60,7 @@ export function ParentChildrenOverview({
 
   return (
     <section className="space-y-4" data-testid="parent-children-overview">
-      <div>
+      <div className="border-l-4 border-brand pl-4">
         <h2 className="font-heading text-xl font-medium">Players</h2>
         <p className="text-sm text-muted-foreground">
           Current clinic registrations for each player.
@@ -76,7 +76,7 @@ export function ParentChildrenOverview({
           );
 
           return (
-            <Card key={child.id}>
+            <Card key={child.id} className="shadow-sm">
               <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
                 <Avatar>
                   {child.avatarUrl ? (
@@ -101,7 +101,12 @@ export function ParentChildrenOverview({
                   <ul className="flex flex-wrap gap-2">
                     {registrations.map((entry) => (
                       <li key={entry.id}>
-                        <Badge variant="secondary">{entry.label}</Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-brand-border bg-brand-soft text-brand-ink"
+                        >
+                          {entry.label}
+                        </Badge>
                       </li>
                     ))}
                   </ul>

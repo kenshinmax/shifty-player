@@ -27,3 +27,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Styling
+Use the brand color tokens in `app/globals.css` (`bg-canvas`, `border-brand`, `text-tone-success-ink`, …) instead of raw Tailwind palette classes. See `docs/brand-guidelines.md` for the palette, status-tone meanings and layout patterns.
