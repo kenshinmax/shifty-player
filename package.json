@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "migrate:orgs": "tsx --env-file=.env.local scripts/migrate-to-orgs.ts"
+    "migrate:orgs": "node --env-file=.env.local scripts/run-ts.mjs scripts/migrate-to-orgs.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
