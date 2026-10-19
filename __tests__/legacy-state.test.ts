@@ -143,4 +143,31 @@ describe("legacy state adapter", () => {
     // deterministic
     expect(splitLegacyState(stateWithOrder(), ORG, existing, NOW)).toEqual(docs);
   });
+
+  it("keeps the payment link flag of a player with no registrations", () => {
+    const base = normalizeRegistrationState(sampleData);
+    const state = normalizeRegistrationState({
+      ...base,
+      players: base.players.map((p) =>
+        p.id === "player-1"
+          ? { ...p, programIds: [], sessionIds: [], paymentLinkSentAt: PAID_AT }
+          : p,
+      ),
+    });
+    const docs = splitLegacyState(state, ORG, undefined, NOW);
+    expect(docs.children.find((c) => c.id === "player-1")?.paymentLinkSentAt).toBe(PAID_AT);
+    expect(assembleLegacyState(docs)).toEqual(state);
+  });
+
+  it("uses the latest of the child and active enrollment link dates", () => {
+    const docs = splitLegacyState(normalizeRegistrationState(sampleData), ORG, undefined, NOW);
+    const later = "2027-01-01T00:00:00.000Z";
+    const child = docs.children.find((c) => c.id === "player-1")!;
+    child.paymentLinkSentAt = "2025-01-01T00:00:00.000Z";
+    for (const e of docs.enrollments) {
+      if (e.childId === "player-1") e.paymentLinkSentAt = later;
+    }
+    const player = assembleLegacyState(docs).players.find((p) => p.id === "player-1")!;
+    expect(player.paymentLinkSentAt).toBe(later);
+  });
 });

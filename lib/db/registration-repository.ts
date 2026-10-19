@@ -383,10 +383,6 @@ export async function markPaymentLinkSentInDb(
   return mutateAppState((state) => {
     const player = state.players.find((entry) => entry.id === playerId);
     if (!player) return { error: "Player not found." };
-    // The link is recorded on enrollments; with none there is nowhere to put it.
-    if (player.sessionIds.length === 0) {
-      return { error: "This player has no clinic registrations yet." };
-    }
     return markPaymentLinkSent(state, playerId);
   });
 }

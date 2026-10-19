@@ -135,6 +135,12 @@ export type Child = {
   grade: string;
   level: Level;
   avatarUrl?: string;
+  /**
+   * Phase 1 only: the legacy player-level "payment link sent" flag, kept on the
+   * child so it survives when the player has no active enrollments. Phase 2 may
+   * drop it in favour of the per-enrollment value.
+   */
+  paymentLinkSentAt?: string;
 };
 
 export type EnrollmentStatus = "pending" | "paid" | "removed";

@@ -62,6 +62,7 @@ export function splitLegacyState(
         grade: player.grade,
         level: player.level,
         avatarUrl: player.avatarUrl,
+        paymentLinkSentAt: player.paymentLinkSentAt,
       }),
     );
 
@@ -123,8 +124,7 @@ export function assembleLegacyState(docs: OrgDocuments): AppState {
   const players: Player[] = docs.children.map((child) => {
     const mine = docs.enrollments.filter((e) => e.childId === child.id);
     const programIds = [...new Set(mine.map((e) => e.programId))];
-    const sent = mine
-      .map((e) => e.paymentLinkSentAt)
+    const sent = [child.paymentLinkSentAt, ...mine.map((e) => e.paymentLinkSentAt)]
       .filter((v): v is string => Boolean(v))
       .sort();
     const latest = docs.orders

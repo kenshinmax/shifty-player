@@ -224,10 +224,26 @@ describe("registration repository", () => {
       expect(active).toHaveLength(0);
     });
 
-    it("payment link requires a registration", async () => {
-      expect(await markPaymentLinkSentInDb(childId)).toEqual({
-        error: "This player has no clinic registrations yet.",
-      });
+    it("payment link persists for a player with no registrations", async () => {
+      const result = await markPaymentLinkSentInDb(childId);
+      expect("error" in result).toBe(false);
+      const after = await getRegistrationState();
+      const player = after.players.find((p) => p.id === childId)!;
+      expect(player.sessionIds).toEqual([]);
+      expect(player.paymentLinkSentAt).toBeTruthy();
+    });
+
+    it("removing a player from their only program keeps the payment link", async () => {
+      await enrollPaidInDb(childId, programId, clinicId);
+      expect("error" in (await markPaymentLinkSentInDb(childId))).toBe(false);
+      const sent = (await getRegistrationState()).players.find((p) => p.id === childId)!
+        .paymentLinkSentAt;
+      expect(sent).toBeTruthy();
+
+      await removePlayerFromProgramInDb(childId, programId);
+      const player = (await getRegistrationState()).players.find((p) => p.id === childId)!;
+      expect(player.sessionIds).toEqual([]);
+      expect(player.paymentLinkSentAt).toBe(sent);
     });
   });
 });

@@ -183,7 +183,16 @@ describe("migrateToOrganizations", () => {
   });
 
   it("after migration the app reads the same state", async () => {
-    const state = legacySeed();
+    const linkedOnly: Player = {
+      ...merchPlayer,
+      id: "player-link-only",
+      programIds: [],
+      sessionIds: [],
+      merchandiseOrder: undefined,
+      paymentLinkSentAt: "2026-01-15T00:00:00.000Z",
+    };
+    const seed = legacySeed();
+    const state = { ...seed, players: [...seed.players, linkedOnly] };
     const store = legacyStore(state);
     await migrateToOrganizations(store, NOW);
 
