@@ -1,3 +1,4 @@
+import type { Db, ObjectId } from "mongodb";
 import type { DocStore } from "@/lib/db/doc-store";
 import { splitLegacyState, type OrgDocuments } from "@/lib/db/legacy-state";
 import { diffOrgDocuments } from "@/lib/db/org-diff";
@@ -136,4 +137,29 @@ async function verify(
       `Migration verification failed: expected ${expected} active enrollments, found ${active}`,
     );
   }
+}
+
+/**
+ * Mongo-only pre-step: before the unique paymentIntentId index existed, the
+ * webhook and confirm-enrollment could both record the same payment. Keep the
+ * earliest record per paymentIntentId and delete the rest, so the index can be
+ * built. Returns the number of documents removed.
+ */
+export async function dedupeProcessedPayments(db: Db): Promise<number> {
+  const groups = await db
+    .collection("processed_payments")
+    .aggregate<{ docs: { _id: ObjectId; processedAt?: string }[] }>([
+      { $group: { _id: "$paymentIntentId", docs: { $push: { _id: "$_id", processedAt: "$processedAt" } } } },
+      { $match: { "docs.1": { $exists: true } } },
+    ])
+    .toArray();
+  const extra = groups.flatMap((group) =>
+    [...group.docs]
+      .sort((a, b) => (a.processedAt ?? "").localeCompare(b.processedAt ?? ""))
+      .slice(1)
+      .map((doc) => doc._id),
+  );
+  if (extra.length === 0) return 0;
+  const result = await db.collection("processed_payments").deleteMany({ _id: { $in: extra } });
+  return result.deletedCount;
 }

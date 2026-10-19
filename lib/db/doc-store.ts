@@ -1,4 +1,4 @@
-import type { Db, Document } from "mongodb";
+import type { Collection, Db, Document } from "mongodb";
 import { getDb, isMongoConfigured } from "@/lib/mongo";
 
 export type CollectionName =
@@ -125,6 +125,23 @@ const ALL_COLLECTIONS: CollectionName[] = [
   "players_legacy",
 ];
 
+/** Names the collection and index so a duplicate-key failure is actionable. */
+async function createUniqueIndex(
+  collection: Collection,
+  name: CollectionName,
+  keys: Record<string, 1>,
+): Promise<void> {
+  try {
+    await collection.createIndex(keys, { unique: true });
+  } catch (error) {
+    const index = Object.keys(keys).join("+");
+    throw new Error(
+      `Failed to create unique index on ${name} (${index}): ${(error as Error).message}`,
+      { cause: error },
+    );
+  }
+}
+
 export function createMongoStore(getDatabase: () => Promise<Db>): DocStore {
   let indexes: Promise<void> | undefined;
 
@@ -134,9 +151,9 @@ export function createMongoStore(getDatabase: () => Promise<Db>): DocStore {
       for (const name of ALL_COLLECTIONS) {
         if (name === "players" || name === "players_legacy") continue;
         const collection = database.collection(name);
-        await collection.createIndex({ [uniqueKey(name)]: 1 }, { unique: true });
+        await createUniqueIndex(collection, name, { [uniqueKey(name)]: 1 });
         if (ORG_SCOPED.includes(name)) {
-          await collection.createIndex({ orgId: 1, id: 1 }, { unique: true });
+          await createUniqueIndex(collection, name, { orgId: 1, id: 1 });
         }
       }
     })().catch((error) => {

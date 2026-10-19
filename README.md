@@ -37,6 +37,16 @@ Auth uses httpOnly session cookies (`shifty_session`); passwords are bcrypt-hash
 
 Registration data is now stored per organization, so existing databases need a one-time migration. The new app refuses to serve registration data until it has run. In order:
 
+0. Rehearse on a copy first. The Mongo store has only been exercised by the in-memory tests, so prove it against real data before touching production:
+   ```bash
+   mongodump --uri "$PROD_MONGODB_URI" --out ./dump
+   mongod --dbpath ./scratch-db --port 27018            # scratch server, in another terminal
+   mongorestore --uri mongodb://localhost:27018 ./dump
+   export MONGODB_URI=mongodb://localhost:27018 MONGODB_DB=<prod db name>
+   npm run migrate:orgs                                 # exported vars win over .env.local
+   npm run dev                                          # same shell, so it uses the scratch DB
+   ```
+   Check that the migration prints the scratch host and database, then click through the admin dashboard and financials and compare players, sessions, payment status and orders with production. Only then continue with production.
 1. Stop the app or put it in maintenance mode. The old version rewrites programs, sessions and players on every save, so it would undo or race the migration.
 2. Back up the database (e.g. `mongodump`).
 3. Run `npm run migrate:orgs` (reads `.env.local`).
