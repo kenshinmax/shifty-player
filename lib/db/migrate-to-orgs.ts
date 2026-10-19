@@ -14,6 +14,8 @@ export type MigrationReport = {
   enrollments: number;
   orders: number;
   legacyPlayersArchived: number;
+  /** Players written to `players` during the run; rerun to migrate them. */
+  legacyPlayersRemaining: number;
 };
 
 /**
@@ -40,6 +42,7 @@ export async function migrateToOrganizations(
 
   const repo = forOrg(DEFAULT_ORG_ID, store);
   const players = await store.find<Player>("players");
+  assertUniquePlayerIds(players);
   const orgDocs = await repo.loadOrgDocuments();
   const existing: OrgDocuments = {
     ...orgDocs,
@@ -69,7 +72,8 @@ export async function migrateToOrganizations(
   for (const player of players) {
     await store.replaceOne("players_legacy", { id: player.id }, player);
   }
-  await store.deleteMany("players");
+  await store.deleteMany("players", { id: { $in: players.map((p) => p.id) } });
+  const legacyPlayersRemaining = await store.count("players");
 
   return {
     organizationCreated,
@@ -79,7 +83,19 @@ export async function migrateToOrganizations(
     enrollments: writes.enrollments.upsert.length,
     orders: writes.orders.upsert.length,
     legacyPlayersArchived: players.length,
+    legacyPlayersRemaining,
   };
+}
+
+function assertUniquePlayerIds(players: Player[]): void {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const { id } of players) (seen.has(id) ? dupes : seen).add(id);
+  if (dupes.size > 0) {
+    throw new Error(
+      `Migration verification failed: duplicate player ids: ${[...dupes].join(", ")}`,
+    );
+  }
 }
 
 function withoutOrg<T extends { orgId: string }>(doc: T): Omit<T, "orgId"> {

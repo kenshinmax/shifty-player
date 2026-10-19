@@ -94,6 +94,7 @@ describe("migrateToOrganizations", () => {
       enrollments: 0,
       orders: 0,
       legacyPlayersArchived: 0,
+      legacyPlayersRemaining: 0,
     });
     expect(await counts(store)).toEqual(before);
   });
@@ -141,6 +142,44 @@ describe("migrateToOrganizations", () => {
     );
     expect(await inner.count("players")).toBe(13);
     expect(await inner.count("players_legacy")).toBe(0);
+  });
+
+  it("leaves players written during the run in place", async () => {
+    const inner = legacyStore();
+    let injected = false;
+    const store: DocStore = {
+      ...inner,
+      async find<T extends object>(c: CollectionName, filter = {}) {
+        const rows = await inner.find<T>(c, filter);
+        if (c === "players" && !injected) {
+          injected = true;
+          await inner.insertOne("players", { ...merchPlayer, id: "player-late", sessionIds: [] });
+        }
+        return rows;
+      },
+    };
+
+    const report = await migrateToOrganizations(store, NOW);
+    expect(report.legacyPlayersRemaining).toBe(1);
+    expect(report.legacyPlayersArchived).toBe(13);
+    expect(await inner.find<Player>("players")).toHaveLength(1);
+    expect(await inner.count("players_legacy")).toBe(13);
+  });
+
+  it("rejects duplicate legacy player ids before archiving", async () => {
+    // memory store rejects duplicate ids on insert, so seed them directly
+    const state = legacySeed();
+    const seeded = createMemoryStore({
+      programs: state.programs,
+      sessions: state.sessions,
+      players: [...state.players, { ...state.players[0] }],
+    });
+
+    await expect(migrateToOrganizations(seeded, NOW)).rejects.toThrow(
+      "Migration verification failed: duplicate player ids: player-1",
+    );
+    expect(await seeded.count("players")).toBe(14);
+    expect(await seeded.count("players_legacy")).toBe(0);
   });
 
   it("after migration the app reads the same state", async () => {
