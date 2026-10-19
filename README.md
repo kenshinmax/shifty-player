@@ -33,6 +33,16 @@ Registration data (programs, clinics, players) and auth accounts live in **Mongo
 
 Auth uses httpOnly session cookies (`shifty_session`); passwords are bcrypt-hashed in the `users` collection.
 
+## Deploying the organizations data layer
+
+Registration data is now stored per organization, so existing databases need a one-time migration. The new app refuses to serve registration data until it has run. In order:
+
+1. Stop the app or put it in maintenance mode. The old version rewrites programs, sessions and players on every save, so it would undo or race the migration.
+2. Back up the database (e.g. `mongodump`).
+3. Run `npm run migrate:orgs` (reads `.env.local`).
+4. Confirm the printed report shows `legacyPlayersRemaining: 0`. If not, rerun it; reruns are safe.
+5. Deploy the new version.
+
 ## Stripe payments (test mode)
 
 Parent clinic checkout uses [Stripe Payment Element](https://docs.stripe.com/payments/payment-element) when keys are configured. Without `STRIPE_SECRET_KEY`, the app keeps a **demo card form** so local/CI Playwright tests keep working.
