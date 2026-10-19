@@ -85,8 +85,10 @@ Org-owned collections also get an index on `{ orgId: 1, id: 1 }`.
 a user, the membership is created at once instead.
 
 **`children`** (from today's `Player`, minus the enrollment and order fields):
-`id`, `parentUserId`, `name`, `email`, `grade`, `level`, `avatarUrl?`. Not
-owned by any organization.
+`id`, `parentUserId?`, `createdByOrgId?`, `name`, `email`, `grade`, `level`,
+`avatarUrl?`. Not owned by any organization. `parentUserId` is absent, and
+`createdByOrgId` is set, for roster players an organization's admin adds
+directly.
 
 **`programs`**, **`sessions`**: today's fields plus `orgId`.
 
@@ -104,7 +106,8 @@ owned by any organization.
 
 **Visibility rule:** an organization can read a child's details only while
 that child has an enrollment with that organization whose status is not
-`removed`. An organization's roster is enrollments joined to children.
+`removed`, or when the organization created the child (`createdByOrgId`).
+Orders are never deleted, even when the child is. An organization's roster is enrollments joined to children.
 
 ## Data access layer
 
@@ -219,14 +222,23 @@ re-run.
 1. Create organization `shifty-player` (status `live`, `hubspotEnabled: true`).
 2. Set `orgId` on every program and session.
 3. For each existing player: create a `children` record with the same `id`.
-   Create an `enrollments` record for each entry in `sessionIds`, with status
-   `paid` if a matching `merchandiseOrder` or processed payment exists and
-   `pending` otherwise. Create an `orders` record from `merchandiseOrder`.
-   Players with no `parentUserId` are assigned to the demo parent `user-1`.
-4. Convert users: `role: "admin"` → `isPlatformAdmin: true` plus an `owner`
-   membership of `shifty-player`; `role: "user"` → neither.
-5. Remove the old fields from player documents only after verification counts
-   match (children = players, enrollments = total `sessionIds`).
+   Players with no `parentUserId` get `createdByOrgId: shifty-player`.
+   Create an `enrollments` record (id `enr-<childId>-<sessionId>`) for each
+   entry in `sessionIds`. Its status is `paid` when the player's
+   `merchandiseOrder` is for that clinic, and `pending` otherwise. Legacy data
+   can't tell paid tuition-only enrollments apart, because processed payments
+   aren't linked to players. Create an `orders` record from
+   `merchandiseOrder`.
+4. Only after verification counts match (children = players, enrollments =
+   valid `sessionIds`), move the `players` documents to `players_legacy`.
+5. (Phase 3) Convert users: `role: "admin"` → `isPlatformAdmin: true` plus an
+   `owner` membership of `shifty-player`; `role: "user"` → neither.
+
+Until the migration has run, the app refuses to serve registration data if a
+legacy `players` collection is present.
+
+Phase 1 keeps the existing in-process write queue. The legacy whole-state API
+stays in front of the new collections until Phase 2.
 
 The sample data in `lib/sample-data.ts` is updated to the new shape. Its
 default is one organization with one 2026 session and 10 registered players,
