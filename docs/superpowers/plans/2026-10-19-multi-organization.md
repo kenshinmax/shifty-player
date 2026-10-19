@@ -339,7 +339,8 @@
 
 ## Phase 2 — Org routing (outline; detailed plan written when Phase 1 ships)
 
-- `lib/db/family-repository.ts`: `childrenForParent`, `enrollmentsForParent` (grouped by org), `ordersForParent`, add and update child. Org-scoped per-entity methods are added to `forOrg` (`programs.list/get/insert/update`, `sessions.*`, `enrollments.*`).
+- `lib/db/family-repository.ts`: `childrenForParent`, `enrollmentsForParent` (grouped by org), `ordersForParent`, add and update child.
+- **Required:** remove children writes from `forOrg().applyWrites`. Children are only written by their parent (family repository), or by an org for children it can see (`createdByOrgId === orgId`). Add an isolation test: Org A can't delete or replace a child enrolled only with Org B. Org-scoped per-entity methods are added to `forOrg` (`programs.list/get/insert/update`, `sessions.*`, `enrollments.*`).
 - `lib/db/platform-repository.ts`: `getOrganizationBySlug`, `listLiveOrganizations`.
 - `app/o/[slug]/layout.tsx` with `OrgProvider`; move `programs`, `clinics`, `showcases`, the home page content, `dashboard` → `admin`, and `player/registration` → `register` under it.
 - `/api/orgs/[orgId]/…` endpoints replace the global ones. `/api/state` is removed; the registration provider loads org-scoped state, and parent pages use family endpoints. The roster uses `forOrg().roster()` (the visibility rule goes live here).
