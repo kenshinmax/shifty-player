@@ -105,3 +105,66 @@ export function formatSessionStatus(status: SessionStatus): string {
       return "Completed";
   }
 }
+
+export type OrganizationStatus = "draft" | "pending_review" | "live" | "suspended";
+
+export type Organization = {
+  id: string;
+  slug: string;
+  name: string;
+  logoUrl?: string;
+  status: OrganizationStatus;
+  stripeAccountId?: string;
+  stripeChargesEnabled: boolean;
+  platformFeeBps: number;
+  hubspotEnabled: boolean;
+  createdAt: string;
+  approvedAt?: string;
+};
+
+export type OrgProgram = Program & { orgId: string };
+export type OrgSession = Session & { orgId: string };
+
+/** A parent's child (or an org-added roster player). Not owned by an org. */
+export type Child = {
+  id: string;
+  parentUserId?: string;
+  createdByOrgId?: string;
+  name: string;
+  email: string;
+  grade: string;
+  level: Level;
+  avatarUrl?: string;
+};
+
+export type EnrollmentStatus = "pending" | "paid" | "removed";
+
+export type Enrollment = {
+  id: string;
+  orgId: string;
+  childId: string;
+  programId: string;
+  sessionId: string;
+  status: EnrollmentStatus;
+  paidAt?: string;
+  stripePaymentIntentId?: string;
+  paymentLinkSentAt?: string;
+  createdAt: string;
+};
+
+export type OrderItem = NonNullable<Player["merchandiseOrder"]>["items"][number];
+
+export type Order = {
+  id: string;
+  orgId: string;
+  parentUserId?: string;
+  childId: string;
+  sessionId: string;
+  items: OrderItem[];
+  tuitionCents: number;
+  swagCents: number;
+  totalCents: number;
+  platformFeeCents: number;
+  stripePaymentIntentId?: string;
+  paidAt: string;
+};
