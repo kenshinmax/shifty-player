@@ -1,7 +1,16 @@
+import { getDocStore, resetMemoryStore } from "@/lib/db/doc-store";
+import {
+  assembleLegacyState,
+  enrollmentId,
+  splitLegacyState,
+  type OrgDocuments,
+} from "@/lib/db/legacy-state";
+import { diffOrgDocuments, isEmptyWriteOps } from "@/lib/db/org-diff";
+import { forOrg } from "@/lib/db/org-repository";
+import { DEFAULT_ORG_ID, defaultOrganization } from "@/lib/organizations";
 import { normalizeRegistrationState } from "@/lib/storage";
 import { sampleData } from "@/lib/sample-data";
-import { getDb, getMongoClient, getMongoDbName, isMongoConfigured } from "@/lib/mongo";
-import type { AppState, Player, Program, Session } from "@/lib/types";
+import type { AppState, Child, Enrollment, Session } from "@/lib/types";
 import {
   addChildForParent,
   addPlayer,
@@ -27,55 +36,24 @@ import {
   validateSessionInput,
 } from "@/lib/player-store";
 
-const PROGRAMS = "programs";
-const SESSIONS = "sessions";
-const PLAYERS = "players";
-const PROCESSED_PAYMENTS = "processed_payments";
+export const LEGACY_DATA_ERROR =
+  "Legacy registration data found. Run `npm run migrate:orgs` before starting the app.";
 
-type MemoryDb = {
-  programs: Program[];
-  sessions: Session[];
-  players: Player[];
-  processedPaymentIds: Set<string>;
+const EMPTY: OrgDocuments = {
+  programs: [],
+  sessions: [],
+  children: [],
+  enrollments: [],
+  orders: [],
 };
 
-type MemoryGlobal = typeof globalThis & {
-  __shiftyRegistrationMemory?: MemoryDb;
-};
-
-function getMemoryDb(): MemoryDb {
-  const g = globalThis as MemoryGlobal;
-  if (!g.__shiftyRegistrationMemory) {
-    const seeded = normalizeRegistrationState(
-      structuredClone(sampleData) as AppState,
-    );
-    g.__shiftyRegistrationMemory = {
-      programs: seeded.programs,
-      sessions: seeded.sessions,
-      players: seeded.players,
-      processedPaymentIds: new Set(),
-    };
-  }
-  return g.__shiftyRegistrationMemory;
-}
-
-/** Reset in-memory registration DB (tests / seed). */
+/** Reset in-memory registration DB (tests / seed). Synchronous. */
 export function resetMemoryRegistrationDb(state: AppState = sampleData): void {
-  const seeded = normalizeRegistrationState(structuredClone(state) as AppState);
-  const g = globalThis as MemoryGlobal;
-  g.__shiftyRegistrationMemory = {
-    programs: seeded.programs,
-    sessions: seeded.sessions,
-    players: seeded.players,
-    processedPaymentIds: new Set(),
-  };
-}
-
-function stripMongoId<T extends { id: string }>(
-  doc: T & { _id?: unknown },
-): T {
-  const { _id: _ignored, ...rest } = doc;
-  return rest as T;
+  const normalized = normalizeRegistrationState(structuredClone(state) as AppState);
+  resetMemoryStore({
+    organizations: [defaultOrganization()],
+    ...splitLegacyState(normalized, DEFAULT_ORG_ID),
+  });
 }
 
 function programIdsForSessions(
@@ -94,46 +72,6 @@ function programIdsForSessions(
   ];
 }
 
-async function ensureUniqueIdIndexes(): Promise<void> {
-  if (!isMongoConfigured()) return;
-  const db = await getDb();
-  await Promise.all(
-    [PROGRAMS, SESSIONS, PLAYERS].map((name) =>
-      db.collection(name).createIndex({ id: 1 }, { unique: true }),
-    ),
-  );
-}
-
-async function replaceCollectionById<T extends { id: string }>(
-  collectionName: string,
-  items: T[],
-): Promise<void> {
-  const client = await getMongoClient();
-  const db = client.db(getMongoDbName());
-  const collection = db.collection(collectionName);
-  const docs = items as unknown as import("mongodb").OptionalId<
-    import("mongodb").Document
-  >[];
-
-  // Prefer a transaction when available; fall back to delete+insert.
-  const session = client.startSession();
-  try {
-    await session.withTransaction(async () => {
-      await collection.deleteMany({}, { session });
-      if (docs.length > 0) {
-        await collection.insertMany(docs, { session });
-      }
-    });
-  } catch {
-    await collection.deleteMany({});
-    if (docs.length > 0) {
-      await collection.insertMany(docs);
-    }
-  } finally {
-    await session.endSession();
-  }
-}
-
 /** Serialize registration writes so concurrent mutations cannot duplicate docs. */
 type WriteGlobal = typeof globalThis & {
   __shiftyRegistrationWriteChain?: Promise<unknown>;
@@ -150,95 +88,89 @@ function enqueueRegistrationWrite<T>(task: () => Promise<T>): Promise<T> {
   return next;
 }
 
-async function writeAppState(state: AppState): Promise<void> {
-  const normalized = normalizeRegistrationState(state);
-
-  if (!isMongoConfigured()) {
-    const memory = getMemoryDb();
-    memory.programs = normalized.programs;
-    memory.sessions = normalized.sessions;
-    memory.players = normalized.players;
-    return;
-  }
-
-  await Promise.all([
-    replaceCollectionById(PROGRAMS, normalized.programs),
-    replaceCollectionById(SESSIONS, normalized.sessions),
-    replaceCollectionById(PLAYERS, normalized.players),
-  ]);
-  try {
-    await ensureUniqueIdIndexes();
-  } catch {
-    // Unique index creation can fail while a repair is in flight.
-  }
+async function ensureDefaultOrganization(): Promise<void> {
+  // false means it already exists, which is fine.
+  await getDocStore().insertOne("organizations", defaultOrganization());
 }
 
-async function readAppState(): Promise<AppState> {
-  if (!isMongoConfigured()) {
-    const memory = getMemoryDb();
-    return normalizeRegistrationState({
-      programs: memory.programs,
-      sessions: memory.sessions,
-      players: memory.players,
-    });
+async function readDocuments(): Promise<OrgDocuments> {
+  const store = getDocStore();
+  if ((await store.count("players")) > 0) {
+    throw new Error(LEGACY_DATA_ERROR);
   }
-
-  const db = await getDb();
-  const [programs, sessions, players] = await Promise.all([
-    db.collection(PROGRAMS).find({}).toArray(),
-    db.collection(SESSIONS).find({}).toArray(),
-    db.collection(PLAYERS).find({}).toArray(),
+  await ensureDefaultOrganization();
+  // Phase 1: every child is visible, because the parent and admin UIs still
+  // read one global state. Phase 2 replaces this with roster().
+  const [orgDocs, children] = await Promise.all([
+    forOrg(DEFAULT_ORG_ID, store).loadOrgDocuments(),
+    store.find<Child>("children"),
   ]);
+  return { ...orgDocs, children };
+}
 
-  if (programs.length === 0 && sessions.length === 0 && players.length === 0) {
-    await writeAppState(sampleData);
-    return normalizeRegistrationState(structuredClone(sampleData) as AppState);
+/**
+ * The legacy shape has no createdByOrgId, so splitLegacyState re-derives it.
+ * Keep the stored value for existing children so an unrelated mutation never
+ * rewrites a child that another organization created.
+ */
+function keepChildOwnership(before: OrgDocuments, after: OrgDocuments): OrgDocuments {
+  const prior = new Map(before.children.map((child) => [child.id, child]));
+  return {
+    ...after,
+    children: after.children.map((child) => {
+      const existing = prior.get(child.id);
+      if (!existing) return child;
+      const kept: Child = { ...child };
+      delete kept.createdByOrgId;
+      if (existing.createdByOrgId !== undefined) {
+        kept.createdByOrgId = existing.createdByOrgId;
+      }
+      return kept;
+    }),
+  };
+}
+
+async function writeState(before: OrgDocuments, state: AppState): Promise<void> {
+  const normalized = normalizeRegistrationState(state);
+  const after = keepChildOwnership(
+    before,
+    splitLegacyState(normalized, DEFAULT_ORG_ID, before),
+  );
+  const ops = diffOrgDocuments(before, after);
+  if (isEmptyWriteOps(ops)) return;
+  await forOrg(DEFAULT_ORG_ID, getDocStore()).applyWrites(ops);
+}
+
+async function loadDocuments(): Promise<OrgDocuments> {
+  const docs = await readDocuments();
+  if (
+    docs.programs.length === 0 &&
+    docs.sessions.length === 0 &&
+    docs.children.length === 0
+  ) {
+    await writeState(docs, structuredClone(sampleData) as AppState);
+    return readDocuments();
   }
-
-  const normalized = normalizeRegistrationState({
-    programs: programs.map((doc) =>
-      stripMongoId(doc as unknown as Program & { _id?: unknown }),
-    ),
-    sessions: sessions.map((doc) =>
-      stripMongoId(doc as unknown as Session & { _id?: unknown }),
-    ),
-    players: players.map((doc) =>
-      stripMongoId(doc as unknown as Player & { _id?: unknown }),
-    ),
-  });
-
-  // Persist a cleaned snapshot when Mongo still has duplicate business ids.
-  const hadDuplicates =
-    programs.length !== normalized.programs.length ||
-    sessions.length !== normalized.sessions.length ||
-    players.length !== normalized.players.length;
-  if (hadDuplicates) {
-    await writeAppState(normalized);
-  } else {
-    try {
-      await ensureUniqueIdIndexes();
-    } catch {
-      // Index may fail briefly if another writer is mid-repair.
-    }
-  }
-
-  return normalized;
+  return docs;
 }
 
 async function mutateAppState(
   mutator: (state: AppState) => AppState | { error: string },
+  afterWrite?: () => Promise<void>,
 ): Promise<{ state: AppState } | { error: string }> {
   return enqueueRegistrationWrite(async () => {
-    const current = await readAppState();
-    const result = mutator(current);
+    const before = await loadDocuments();
+    const result = mutator(assembleLegacyState(before));
     if ("error" in result) return { error: result.error };
-    await writeAppState(result);
-    return { state: normalizeRegistrationState(result) };
+    await writeState(before, result);
+    // Runs inside the write queue so no concurrent mutation sees a stale doc.
+    await afterWrite?.();
+    return { state: assembleLegacyState(await loadDocuments()) };
   });
 }
 
 export async function getRegistrationState(): Promise<AppState> {
-  return readAppState();
+  return assembleLegacyState(await loadDocuments());
 }
 
 export async function seedRegistrationState(
@@ -246,14 +178,15 @@ export async function seedRegistrationState(
 ): Promise<AppState> {
   return enqueueRegistrationWrite(async () => {
     const next = normalizeRegistrationState(structuredClone(state) as AppState);
-    await writeAppState(next);
-    if (!isMongoConfigured()) {
-      resetMemoryRegistrationDb(next);
-    } else {
-      // Clear processed payments on full seed so e2e is deterministic.
-      const db = await getDb();
-      await db.collection(PROCESSED_PAYMENTS).deleteMany({});
-    }
+    const store = getDocStore();
+    await forOrg(DEFAULT_ORG_ID, store).clearOrgDocuments();
+    await store.deleteMany("children");
+    // Clear processed payments on full seed so e2e is deterministic.
+    await store.deleteMany("processed_payments");
+    await ensureDefaultOrganization();
+    await forOrg(DEFAULT_ORG_ID, store).applyWrites(
+      diffOrgDocuments(EMPTY, splitLegacyState(next, DEFAULT_ORG_ID)),
+    );
     return next;
   });
 }
@@ -448,8 +381,11 @@ export async function markPaymentLinkSentInDb(
   playerId: string,
 ): Promise<{ state: AppState } | { error: string }> {
   return mutateAppState((state) => {
-    if (!state.players.some((player) => player.id === playerId)) {
-      return { error: "Player not found." };
+    const player = state.players.find((entry) => entry.id === playerId);
+    if (!player) return { error: "Player not found." };
+    // The link is recorded on enrollments; with none there is nowhere to put it.
+    if (player.sessionIds.length === 0) {
+      return { error: "This player has no clinic registrations yet." };
     }
     return markPaymentLinkSent(state, playerId);
   });
@@ -475,6 +411,19 @@ export async function enrollPaidInDb(
   paidAt: string = new Date().toISOString(),
   merchandiseOrder?: import("@/lib/types").Player["merchandiseOrder"],
 ): Promise<{ state: AppState } | { error: string }> {
+  // Tuition-only payments leave no order behind, so the diff alone cannot mark
+  // the enrollment paid; record it directly once the registration is written.
+  const markPaid = async () => {
+    const id = enrollmentId(playerId, clinicId);
+    const enrollment = await getDocStore().findOne<Enrollment>("enrollments", {
+      orgId: DEFAULT_ORG_ID,
+      id,
+    });
+    if (enrollment && enrollment.status !== "paid") {
+      await forOrg(DEFAULT_ORG_ID, getDocStore()).markEnrollmentPaid(id, paidAt);
+    }
+  };
+
   return mutateAppState((state) => {
     const player = state.players.find((entry) => entry.id === playerId);
     const alreadyEnrolled =
@@ -499,29 +448,14 @@ export async function enrollPaidInDb(
       paidAt,
       merchandiseOrder,
     );
-  });
+  }, markPaid);
 }
 
 export async function claimProcessedPayment(
   paymentIntentId: string,
 ): Promise<boolean> {
-  if (!isMongoConfigured()) {
-    const memory = getMemoryDb();
-    if (memory.processedPaymentIds.has(paymentIntentId)) return false;
-    memory.processedPaymentIds.add(paymentIntentId);
-    return true;
-  }
-
-  const db = await getDb();
-  const result = await db.collection(PROCESSED_PAYMENTS).updateOne(
-    { paymentIntentId },
-    {
-      $setOnInsert: {
-        paymentIntentId,
-        processedAt: new Date().toISOString(),
-      },
-    },
-    { upsert: true },
-  );
-  return result.upsertedCount === 1;
+  return getDocStore().insertOne("processed_payments", {
+    paymentIntentId,
+    processedAt: new Date().toISOString(),
+  });
 }
