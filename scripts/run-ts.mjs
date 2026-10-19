@@ -1,4 +1,4 @@
-// Runs a TypeScript script with the repo's "@/" alias. jiti comes from the Tailwind/Vite toolchain.
+// Runs a TypeScript script with the repo's "@/" alias, via the jiti devDependency.
 import { createJiti } from "jiti";
 import { fileURLToPath } from "node:url";
 import path from "node:path";

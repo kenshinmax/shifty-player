@@ -33,6 +33,13 @@ function compact<T extends object>(value: T): T {
   ) as T;
 }
 
+/** A shallow copy of `doc` without `key`. */
+function without<T extends object, K extends keyof T>(doc: T, key: K): Omit<T, K> {
+  const copy: Partial<T> = { ...doc };
+  delete copy[key];
+  return copy as Omit<T, K>;
+}
+
 export function splitLegacyState(
   state: AppState,
   orgId: string,
@@ -133,9 +140,8 @@ export function assembleLegacyState(docs: OrgDocuments): AppState {
         (best, o) => (!best || Date.parse(o.paidAt) > Date.parse(best.paidAt) ? o : best),
         undefined,
       );
-    const { createdByOrgId: _createdByOrgId, ...rest } = child;
     return compact<Player>({
-      ...rest,
+      ...without(child, "createdByOrgId"),
       programIds,
       sessionIds: mine.map((e) => e.sessionId),
       paymentLinkSentAt: sent.length ? sent[sent.length - 1] : undefined,
@@ -153,8 +159,8 @@ export function assembleLegacyState(docs: OrgDocuments): AppState {
   });
 
   return normalizeRegistrationState({
-    programs: docs.programs.map(({ orgId: _orgId, ...p }) => p),
-    sessions: docs.sessions.map(({ orgId: _orgId, ...s }) => s),
+    programs: docs.programs.map((p) => without(p, "orgId")),
+    sessions: docs.sessions.map((s) => without(s, "orgId")),
     players,
   });
 }
