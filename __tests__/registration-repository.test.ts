@@ -167,6 +167,20 @@ describe("registration repository", () => {
       await expect(getRegistrationState()).rejects.toThrow(LEGACY_DATA_ERROR);
     });
 
+    it("refuses to run on unmigrated programs without players", async () => {
+      resetMemoryStore({ programs: sampleData.programs });
+      await expect(getRegistrationState()).rejects.toThrow(LEGACY_DATA_ERROR);
+      await expect(setProgramOpenInDb(programId, false)).rejects.toThrow(LEGACY_DATA_ERROR);
+      expect(await getDocStore().count("children")).toBe(0);
+    });
+
+    it("refuses to run on unmigrated sessions without players", async () => {
+      resetMemoryStore({ sessions: sampleData.sessions });
+      await expect(getRegistrationState()).rejects.toThrow(LEGACY_DATA_ERROR);
+      await expect(setProgramOpenInDb(programId, false)).rejects.toThrow(LEGACY_DATA_ERROR);
+      expect(await getDocStore().count("children")).toBe(0);
+    });
+
     it("tuition-only paid enrollment stays paid", async () => {
       const result = await enrollPaidInDb(childId, programId, clinicId);
       expect("error" in result).toBe(false);

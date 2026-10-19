@@ -95,7 +95,13 @@ async function ensureDefaultOrganization(): Promise<void> {
 
 async function readDocuments(): Promise<OrgDocuments> {
   const store = getDocStore();
-  if ((await store.count("players")) > 0) {
+  const unstamped = { orgId: { $exists: false } };
+  const [players, programs, sessions] = await Promise.all([
+    store.count("players"),
+    store.count("programs", unstamped),
+    store.count("sessions", unstamped),
+  ]);
+  if (players > 0 || programs > 0 || sessions > 0) {
     throw new Error(LEGACY_DATA_ERROR);
   }
   await ensureDefaultOrganization();
