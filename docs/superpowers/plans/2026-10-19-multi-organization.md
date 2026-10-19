@@ -15,7 +15,7 @@
 - Every org-owned document carries `orgId`; all org-owned reads and writes filter on it.
 - Default organization: id `org-shifty-player`, slug `shifty-player`, name `Shifty Player`, status `live`, `hubspotEnabled: true`, `stripeChargesEnabled: false`, `platformFeeBps: 0`.
 - Collections: `organizations`, `programs`, `sessions`, `children`, `enrollments`, `orders`, `processed_payments`; legacy `players` is archived to `players_legacy` by the migration.
-- Enrollment ids are deterministic: `enr-${childId}-${sessionId}`. Migrated order ids: `ord-${childId}-${sessionId}`.
+- Enrollment ids are deterministic: `enr-${childId}-${sessionId}`. Order ids are deterministic: `ord-${childId}-${sessionId}-${Date.parse(paidAt)}` (so a second purchase for the same clinic never collides).
 - Removing an enrollment sets `status: "removed"`; it is never deleted. Orders are never deleted or updated by the diff (financial history).
 - Phase 1 changes no route, provider, component or URL. Exported function names and signatures of `lib/db/registration-repository.ts` stay the same.
 - Unit tests use the memory store only. Never run the migration script, or a dev server that reads `.env.local`, against the real Mongo database while implementing; that is a deploy step for the user.
@@ -157,7 +157,7 @@
   - Each player becomes a child with the same `id`. Set `createdByOrgId = orgId` only when `parentUserId` is absent. Omit undefined optional keys.
   - One enrollment per `sessionId` whose session exists in `state.sessions` (unknown session ids are dropped). `programId` comes from the session. `paymentLinkSentAt` is the player's value.
   - If `existing` has an enrollment with the same id, carry over its `status`, `paidAt`, `stripePaymentIntentId` and `createdAt`. Otherwise `createdAt = now`, and the status is `paid` (with `paidAt = merchandiseOrder.paidAt`) when `merchandiseOrder?.clinicId === sessionId`, else `pending`.
-  - A `merchandiseOrder` becomes an order with id `ord-${playerId}-${clinicId}` and `platformFeeCents: 0`, unless `existing.orders` already holds an order for the same `childId` + `sessionId` + `paidAt`, in which case that order is reused as-is.
+  - A `merchandiseOrder` becomes an order with id `ord-${playerId}-${clinicId}-${Date.parse(paidAt)}` and `platformFeeCents: 0`. If `existing.orders` already holds that id, the existing order is reused as-is. Orders in `existing` that the state no longer references are carried into the result unchanged (orders are never dropped).
 - Assemble rules:
   - `players` = one per child, in children order.
   - `sessionIds` = enrollment `sessionId`s in enrollment order; `programIds` = distinct `programId`s of those enrollments, in first-seen order.
@@ -194,7 +194,7 @@
     children: Changes<Child>;
     /** remove → set status "removed" (never deleted). */
     enrollments: Changes<Enrollment>;
-    /** Orders are append-only: only new or changed ids, never removed. */
+    /** Orders are append-only: only ids absent from `before`; never updated or removed. */
     orders: { upsert: Order[] };
   };
   export function diffOrgDocuments(before: OrgDocuments, after: OrgDocuments): OrgWriteOps;
