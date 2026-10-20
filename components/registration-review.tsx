@@ -710,7 +710,7 @@ export function RegistrationReview() {
 
   useEffect(() => {
     if (!user) {
-      router.replace("/");
+      router.replace(orgHref("/"));
       return;
     }
     if (!canViewPlayerDashboard) {

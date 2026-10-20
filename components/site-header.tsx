@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
-import { useOptionalOrg } from "@/components/org-provider";
+import { useNavOrgSlug } from "@/components/org-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -33,17 +33,6 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-/**
- * The org slug for the current page, or null on platform pages. The header and
- * footer render in AppShell, above the org layout's OrgProvider, so the route
- * params are the fallback there.
- */
-function useNavOrgSlug(): string | null {
-  const org = useOptionalOrg();
-  const params = useParams<{ slug?: string }>();
-  return org?.slug ?? params.slug ?? null;
 }
 
 /** Org nav inside `/o/[slug]`, platform nav everywhere else. */
@@ -169,10 +158,8 @@ export function SiteHeader() {
                       My Dashboard
                     </DropdownMenuItem>
                   ) : null}
-                  {canViewDashboard ? (
-                    <DropdownMenuItem
-                      onClick={() => router.push(getPostLoginPath(user))}
-                    >
+                  {canViewDashboard && adminHref ? (
+                    <DropdownMenuItem onClick={() => router.push(adminHref)}>
                       <LayoutDashboard />
                       Admin Dashboard
                     </DropdownMenuItem>

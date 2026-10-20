@@ -20,7 +20,6 @@ import { useRegistration } from "@/components/registration-provider";
 import { Badge } from "@/components/ui/badge";
 import { Layers, Sparkles, Target } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { getPostLoginPath } from "@/lib/auth";
 import { formatMonth } from "@/lib/format";
 import { sortSessionsByRecent } from "@/lib/session-showcase";
 import { SummerScheduleCalendars } from "./summer-schedule-calendars";
@@ -107,9 +106,9 @@ export function HomeContent() {
     : "the next program";
 
   const openRegisterFlow = () => {
-    // Players are added from the dashboard; signed-in users go straight there.
+    // Signed-in admins go to this org's admin; parents go to its register page.
     if (user) {
-      router.push(getPostLoginPath(user));
+      router.push(orgHref(user.role === "admin" ? "/admin" : "/register"));
       return;
     }
     setLoginOpen(true);

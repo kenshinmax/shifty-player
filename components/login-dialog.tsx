@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/auth-provider";
+import { useNavOrgSlug } from "@/components/org-provider";
 import { DEMO_ACCOUNTS, getPostLoginPath, type AuthUser } from "@/lib/auth";
 
 type LoginDialogProps = {
@@ -31,6 +32,7 @@ export function LoginDialog({
 }: LoginDialogProps) {
   const router = useRouter();
   const { login, signup } = useAuth();
+  const orgSlug = useNavOrgSlug();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
   const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
@@ -47,7 +49,12 @@ export function LoginDialog({
       onSuccess(user);
       return;
     }
-    router.push(getPostLoginPath(user));
+    // Admins signing in from an org land on that org's admin.
+    router.push(
+      user.role === "admin" && orgSlug
+        ? `/o/${orgSlug}/admin`
+        : getPostLoginPath(user),
+    );
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
