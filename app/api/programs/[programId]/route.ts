@@ -4,6 +4,7 @@ import {
   setProgramOpenInDb,
   updateProgramInDb,
 } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import type { ProgramInput } from "@/lib/player-store";
 
 export const runtime = "nodejs";
@@ -33,7 +34,7 @@ export async function PATCH(
     body.description === undefined &&
     body.startDate === undefined
   ) {
-    const result = await setProgramOpenInDb(programId, body.open);
+    const result = await setProgramOpenInDb(DEFAULT_ORG_ID, programId, body.open);
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
@@ -51,7 +52,7 @@ export async function PATCH(
       typeof body.location === "string" ? body.location : undefined,
   };
 
-  const result = await updateProgramInDb(programId, input);
+  const result = await updateProgramInDb(DEFAULT_ORG_ID, programId, input);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

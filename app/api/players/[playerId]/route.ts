@@ -3,6 +3,7 @@ import {
   deletePlayerInDb,
   updatePlayerInDb,
 } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import type { PlayerInput } from "@/lib/player-store";
 
 export const runtime = "nodejs";
@@ -20,7 +21,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const result = await updatePlayerInDb(playerId, body);
+  const result = await updatePlayerInDb(DEFAULT_ORG_ID, playerId, body);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
@@ -32,7 +33,7 @@ export async function DELETE(
   context: { params: Promise<{ playerId: string }> },
 ) {
   const { playerId } = await context.params;
-  const result = await deletePlayerInDb(playerId);
+  const result = await deletePlayerInDb(DEFAULT_ORG_ID, playerId);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

@@ -5,6 +5,7 @@ import {
   setClinicAvailableInDb,
   updateClinicInDb,
 } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import type { SessionInput } from "@/lib/player-store";
 
 export const runtime = "nodejs";
@@ -28,14 +29,14 @@ export async function PATCH(
   }
 
   if (typeof body.available === "boolean" && body.year === undefined) {
-    const result = await setClinicAvailableInDb(clinicId, body.available);
+    const result = await setClinicAvailableInDb(DEFAULT_ORG_ID, clinicId, body.available);
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
     return NextResponse.json({ state: result.state });
   }
 
-  const result = await updateClinicInDb(clinicId, {
+  const result = await updateClinicInDb(DEFAULT_ORG_ID, clinicId, {
     year: Number(body.year),
     month: Number(body.month),
     week: body.week,
@@ -60,7 +61,7 @@ export async function DELETE(
   if (auth.error) return auth.error;
 
   const { clinicId } = await context.params;
-  const result = await deleteClinicInDb(clinicId);
+  const result = await deleteClinicInDb(DEFAULT_ORG_ID, clinicId);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

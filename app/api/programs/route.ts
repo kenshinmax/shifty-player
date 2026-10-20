@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
 import { createProgramInDb } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import type { ProgramInput } from "@/lib/player-store";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const result = await createProgramInDb(body);
+  const result = await createProgramInDb(DEFAULT_ORG_ID, body);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

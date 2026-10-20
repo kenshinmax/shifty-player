@@ -159,6 +159,67 @@ describe("org repository", () => {
     expect(roster.map((c) => c.id)).toEqual(["c1", "c3"]);
   });
 
+  it("cannot replace or delete a child enrolled only with another org", async () => {
+    const store = createMemoryStore({
+      children: [child("c4")],
+      enrollments: [enrollment("o2", "c4")],
+    });
+    const before = await store.findOne("children", { id: "c4" });
+
+    const upsert = emptyOps();
+    upsert.children.upsert = [child("c4", { name: "Hijacked" })];
+    await expect(forOrg("o1", store).applyWrites(upsert)).rejects.toThrow(
+      "Child belongs to another organization.",
+    );
+
+    const remove = emptyOps();
+    remove.children.remove = ["c4"];
+    await expect(forOrg("o1", store).applyWrites(remove)).rejects.toThrow(
+      "Child belongs to another organization.",
+    );
+
+    expect(await store.findOne("children", { id: "c4" })).toEqual(before);
+    expect(await store.findOne("enrollments", { childId: "c4" })).toMatchObject({ status: "pending" });
+  });
+
+  it("rejects the whole batch before writing anything", async () => {
+    const store = createMemoryStore({
+      children: [child("c4")],
+      enrollments: [enrollment("o2", "c4")],
+    });
+    const ops = emptyOps();
+    ops.programs.upsert = [program("o1", "p-fine")];
+    ops.children.upsert = [child("c4", { name: "Hijacked" })];
+    await expect(forOrg("o1", store).applyWrites(ops)).rejects.toThrow(
+      "Child belongs to another organization.",
+    );
+    expect(await store.count("programs")).toBe(0);
+  });
+
+  it("may write a child when the same batch enrolls it here", async () => {
+    const store = createMemoryStore({
+      children: [child("c4")],
+      enrollments: [enrollment("o2", "c4")],
+    });
+    const ops = emptyOps();
+    ops.children.upsert = [child("c4", { paymentLinkSentAt: NOW })];
+    ops.enrollments.upsert = [enrollment("o1", "c4", "paid")];
+    await forOrg("o1", store).applyWrites(ops);
+    expect(await store.findOne("children", { id: "c4" })).toMatchObject({ paymentLinkSentAt: NOW });
+    expect(await store.findOne("enrollments", { orgId: "o1", childId: "c4" })).toMatchObject({
+      status: "paid",
+    });
+  });
+
+  it("may write a new child or one this org created", async () => {
+    const store = createMemoryStore({ children: [child("mine", { createdByOrgId: "o1" })] });
+    const ops = emptyOps();
+    ops.children.upsert = [child("brand-new"), child("mine", { createdByOrgId: "o1", name: "Renamed" })];
+    await forOrg("o1", store).applyWrites(ops);
+    expect(await store.count("children")).toBe(2);
+    expect(await store.findOne("children", { id: "mine" })).toMatchObject({ name: "Renamed" });
+  });
+
   it("markEnrollmentPaid sets status, paidAt and stripePaymentIntentId; false for an unknown id or another org's id", async () => {
     const store = seeded();
     const repo = forOrg("o1", store);

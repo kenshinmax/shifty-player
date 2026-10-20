@@ -8,6 +8,7 @@ import {
   enrollPaidInDb,
   getRegistrationState,
 } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import { getClinicTuitionCents } from "@/lib/programs";
 import {
   evaluatePaymentIntentForEnrollment,
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     const clinicId = paymentIntent.metadata.clinicId;
     let enrolledState: AppState | null = null;
     if (playerId && programId && clinicId) {
-      const state = await getRegistrationState();
+      const state = await getRegistrationState(DEFAULT_ORG_ID);
       const clinic = state.sessions.find((session) => session.id === clinicId);
       const tuitionCents = clinic
         ? getClinicTuitionCents(clinic)
@@ -86,6 +87,7 @@ export async function POST(request: Request) {
           evaluation.tuitionCents,
         );
         const enrolled = await enrollPaidInDb(
+          DEFAULT_ORG_ID,
           playerId,
           programId,
           clinicId,

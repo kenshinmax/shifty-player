@@ -6,6 +6,7 @@ import {
   enrollPaidInDb,
   getRegistrationState,
 } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import { getClinicTuitionCents } from "@/lib/programs";
 import {
   approveEnrollmentFromPaymentIntent,
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const state = await getRegistrationState();
+    const state = await getRegistrationState(DEFAULT_ORG_ID);
     const clinic = state.sessions.find((session) => session.id === clinicId);
     if (!clinic) {
       return NextResponse.json(
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
       result.tuitionCents,
     );
     const enrolled = await enrollPaidInDb(
+      DEFAULT_ORG_ID,
       playerId,
       programId,
       clinicId,

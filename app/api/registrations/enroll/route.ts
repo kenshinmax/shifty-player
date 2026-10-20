@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { enrollPaidInDb, getRegistrationState } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import {
   buildMerchandiseOrder,
   parseCart,
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: cartResult.error }, { status: 400 });
   }
 
-  const state = await getRegistrationState();
+  const state = await getRegistrationState(DEFAULT_ORG_ID);
   const clinic = state.sessions.find((session) => session.id === clinicId);
   if (!clinic) {
     return NextResponse.json({ error: "Clinic not found." }, { status: 404 });
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
     getClinicTuitionCents(clinic),
   );
   const result = await enrollPaidInDb(
+    DEFAULT_ORG_ID,
     playerId,
     programId,
     clinicId,

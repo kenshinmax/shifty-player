@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRegistrationState } from "@/lib/db/registration-repository";
+import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import {
   parseCart,
   computeRegistrationTotalCents,
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
   }
   const cart = cartResult;
 
-  const state = await getRegistrationState();
+  const state = await getRegistrationState(DEFAULT_ORG_ID);
   const clinic = state.sessions.find((session) => session.id === clinicId);
   if (!clinic) {
     return NextResponse.json({ error: "Clinic not found." }, { status: 404 });

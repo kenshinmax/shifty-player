@@ -15,12 +15,57 @@ export type OrgRepository = {
   clearOrgDocuments(): Promise<void>;
 };
 
+export const CHILD_NOT_OWNED_ERROR = "Child belongs to another organization.";
+
+/**
+ * Ids of the children an org may read: a non-removed enrollment with the org,
+ * or created by it.
+ */
+export function visibleChildIds(
+  orgId: string,
+  children: readonly Child[],
+  enrollments: readonly Enrollment[],
+): Set<string> {
+  const enrolled = new Set(
+    enrollments
+      .filter((e) => e.orgId === orgId && e.status !== "removed")
+      .map((e) => e.childId),
+  );
+  return new Set(
+    children
+      .filter((c) => enrolled.has(c.id) || c.createdByOrgId === orgId)
+      .map((c) => c.id),
+  );
+}
+
 export function forOrg(orgId: string, store: DocStore = getDocStore()): OrgRepository {
   const mine = { orgId };
 
   function assertOwned(docs: readonly { orgId: string }[]): void {
     if (docs.some((d) => d.orgId !== orgId)) {
       throw new Error("Document belongs to another organization.");
+    }
+  }
+
+  /**
+   * A child may be written only when it is new, visible to this org, or this
+   * same batch gives it an active enrollment here.
+   */
+  async function assertChildrenWritable(ops: OrgWriteOps): Promise<void> {
+    const ids = [
+      ...new Set([...ops.children.upsert.map((c) => c.id), ...ops.children.remove]),
+    ];
+    if (ids.length === 0) return;
+    const [existing, enrollments] = await Promise.all([
+      store.find<Child>("children", { id: { $in: ids } }),
+      store.find<Enrollment>("enrollments", { orgId, childId: { $in: ids } }),
+    ]);
+    const visible = visibleChildIds(orgId, existing, [
+      ...enrollments,
+      ...ops.enrollments.upsert,
+    ]);
+    if (existing.some((c) => !visible.has(c.id))) {
+      throw new Error(CHILD_NOT_OWNED_ERROR);
     }
   }
 
@@ -43,12 +88,12 @@ export function forOrg(orgId: string, store: DocStore = getDocStore()): OrgRepos
     },
 
     async roster() {
-      const enrollments = await store.find<Enrollment>("enrollments", mine);
-      const enrolled = new Set(
-        enrollments.filter((e) => e.status !== "removed").map((e) => e.childId),
-      );
-      const children = await store.find<Child>("children");
-      return children.filter((c) => enrolled.has(c.id) || c.createdByOrgId === orgId);
+      const [enrollments, children] = await Promise.all([
+        store.find<Enrollment>("enrollments", mine),
+        store.find<Child>("children"),
+      ]);
+      const visible = visibleChildIds(orgId, children, enrollments);
+      return children.filter((c) => visible.has(c.id));
     },
 
     async applyWrites(ops) {
@@ -57,6 +102,7 @@ export function forOrg(orgId: string, store: DocStore = getDocStore()): OrgRepos
       assertOwned(ops.sessions.upsert);
       assertOwned(ops.enrollments.upsert);
       assertOwned(ops.orders.upsert);
+      await assertChildrenWritable(ops);
 
       for (const doc of ops.programs.upsert) {
         await store.replaceOne("programs", { orgId, id: doc.id }, doc);
