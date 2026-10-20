@@ -515,7 +515,13 @@ export async function enrollPaidInDb(
     }
   };
 
-  return mutateAppState(orgId, (state) => {
+  return mutateAppState(orgId, (state, { visible, children }) => {
+    // Claimable: already on this org's roster, or a parent's child registering
+    // here for the first time. Never another org's own child.
+    const child = children.get(playerId);
+    if (child && !visible.has(playerId) && !child.parentUserId) {
+      return { error: "Player not found." };
+    }
     const player = state.players.find((entry) => entry.id === playerId);
     const alreadyEnrolled =
       Boolean(player?.sessionIds.includes(clinicId)) &&

@@ -3,6 +3,7 @@ import { getDocStore, resetMemoryStore } from "@/lib/db/doc-store";
 import { enrollmentId, splitLegacyState } from "@/lib/db/legacy-state";
 import {
   createPlayerInDb,
+  createProgramInDb,
   deleteClinicInDb,
   deletePlayerInDb,
   enrollPaidInDb,
@@ -382,6 +383,57 @@ describe("registration repository", () => {
       expect(state.sessions).toEqual([]);
       expect(state.players).toEqual([]);
       expect(state.seatCounts).toEqual({});
+    });
+
+    it("cannot enroll a child created by another org", async () => {
+      const foreign = {
+        id: "child-org-b",
+        createdByOrgId: "org-b",
+        name: "Other Org Kid",
+        email: "other@example.com",
+        grade: "5",
+        level: "beginner",
+      } as Child;
+      const store = getDocStore();
+      await store.insertOne("children", foreign);
+      const enrollmentsBefore = await store.count("enrollments");
+
+      const result = await enrollPaidInDb(
+        DEFAULT_ORG_ID,
+        foreign.id,
+        programId,
+        clinicId,
+      );
+      expect(result).toEqual({ error: "Player not found." });
+      expect(await store.findOne("children", { id: foreign.id })).toEqual(foreign);
+      expect(await store.count("enrollments")).toBe(enrollmentsBefore);
+      expect(await store.count("enrollments", { childId: foreign.id })).toBe(0);
+    });
+
+    it("a non-default org mutates without touching default-org children", async () => {
+      await getStateForViewer(DEFAULT_ORG_ID, { kind: "public" });
+      await getDocStore().insertOne("organizations", {
+        ...defaultOrganization(),
+        id: "org-b",
+        slug: "org-b",
+      });
+      const childrenBefore = await getDocStore().find("children");
+      expect(childrenBefore.length).toBeGreaterThan(0);
+
+      const spy = vi.spyOn(getDocStore(), "replaceOne");
+      const result = await createProgramInDb("org-b", {
+        name: "Org B Spring",
+        description: "Spring clinics",
+        startDate: "2026-03-01",
+        endDate: "2026-05-31",
+        open: true,
+        spots: 20,
+      });
+      expect("error" in result).toBe(false);
+      expect(spy.mock.calls.map(([collection]) => collection)).not.toContain("children");
+      expect(await getDocStore().find("children")).toEqual(childrenBefore);
+      expect(await getDocStore().count("programs", { orgId: "org-b" })).toBe(1);
+      spy.mockRestore();
     });
 
     it("unknown org is rejected", async () => {
