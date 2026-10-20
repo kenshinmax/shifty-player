@@ -33,6 +33,8 @@ import type { AppState, Session } from "@/lib/types";
 
 export function usePlayerStore(
   orgId: string,
+  /** The signed-in user's id; a change refetches the viewer-scoped state. */
+  viewerId: string | null = null,
   initialState: AppState = sampleData,
 ) {
   const [state, setState] = useState<AppState>(() =>
@@ -50,6 +52,7 @@ export function usePlayerStore(
     return next;
   }, [applyState, orgId]);
 
+  // The state is viewer-scoped, so signing in or out within the org refetches it.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -65,7 +68,7 @@ export function usePlayerStore(
     return () => {
       cancelled = true;
     };
-  }, [applyState, orgId]);
+  }, [applyState, orgId, viewerId]);
 
   const syncFromStorage = useCallback(() => {
     void refresh();

@@ -255,7 +255,10 @@ export function AdminDashboard() {
                       <p className="text-xs tracking-wide text-white/55 uppercase">
                         Registered players
                       </p>
-                      <p className="mt-2 font-heading text-3xl font-semibold">
+                      <p
+                        className="mt-2 font-heading text-3xl font-semibold"
+                        data-testid="registered-players-count"
+                      >
                         {state.players.length}
                       </p>
                       <p className="mt-1 text-sm text-white/65">

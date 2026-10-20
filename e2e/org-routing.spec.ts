@@ -80,3 +80,29 @@ test("public organization state has no players", async ({ playwright, baseURL })
   expect(body.state.players).toHaveLength(0);
   await request.dispose();
 });
+
+test("signing in from an org page loads the admin roster without a reload", async ({
+  page,
+}) => {
+  await page.context().clearCookies();
+  const seed = await page.request.post("/api/admin/seed");
+  expect(seed.ok()).toBeTruthy();
+  await page.goto("/o/shifty-player/programs");
+  await expect(page.getByRole("heading", { name: "Programs" })).toBeVisible();
+
+  await page.getByTestId("sign-in-button").click();
+  await page.getByRole("button", { name: "Use admin" }).click();
+  await page
+    .getByRole("dialog", { name: "Sign in" })
+    .getByRole("button", { name: "Sign in" })
+    .click();
+  await expect(page).toHaveURL(/\/o\/shifty-player\/admin$/);
+
+  // page.request shares the browser's cookies, so this is the admin's state.
+  const response = await page.request.get("/api/orgs/org-shifty-player/state");
+  const { state } = await response.json();
+  expect(state.players.length).toBeGreaterThan(0);
+  await expect(page.getByTestId("registered-players-count")).toHaveText(
+    String(state.players.length),
+  );
+});

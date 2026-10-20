@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import { useAuth } from "@/components/auth-provider";
 import { usePlayerStore } from "@/lib/use-player-store";
 
 type RegistrationStore = ReturnType<typeof usePlayerStore>;
@@ -14,7 +15,8 @@ export function RegistrationProvider({
   orgId: string;
   children: ReactNode;
 }) {
-  const store = usePlayerStore(orgId);
+  const { user } = useAuth();
+  const store = usePlayerStore(orgId, user?.id ?? null);
 
   if (!store.hydrated) {
     return null;
