@@ -31,7 +31,10 @@ import {
 import { normalizeRegistrationState } from "@/lib/storage";
 import type { AppState, Session } from "@/lib/types";
 
-export function usePlayerStore(initialState: AppState = sampleData) {
+export function usePlayerStore(
+  orgId: string,
+  initialState: AppState = sampleData,
+) {
   const [state, setState] = useState<AppState>(() =>
     normalizeRegistrationState(initialState),
   );
@@ -42,16 +45,16 @@ export function usePlayerStore(initialState: AppState = sampleData) {
   }, []);
 
   const refresh = useCallback(async () => {
-    const next = await fetchRegistrationState();
+    const next = await fetchRegistrationState(orgId);
     applyState(next);
     return next;
-  }, [applyState]);
+  }, [applyState, orgId]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const next = await fetchRegistrationState();
+        const next = await fetchRegistrationState(orgId);
         if (!cancelled) applyState(next);
       } catch {
         if (!cancelled) applyState(sampleData);
@@ -62,7 +65,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     return () => {
       cancelled = true;
     };
-  }, [applyState]);
+  }, [applyState, orgId]);
 
   const syncFromStorage = useCallback(() => {
     void refresh();
@@ -70,78 +73,78 @@ export function usePlayerStore(initialState: AppState = sampleData) {
 
   const createPlayer = useCallback(
     async (input: PlayerInput) => {
-      const result = await apiCreatePlayer(input);
+      const result = await apiCreatePlayer(orgId, input);
       if (result.error || !result.state) return { error: result.error ?? "Failed." };
       applyState(result.state);
       return { error: null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const editPlayer = useCallback(
     async (playerId: string, input: PlayerInput) => {
-      const result = await apiUpdatePlayer(playerId, input);
+      const result = await apiUpdatePlayer(orgId, playerId, input);
       if (result.error || !result.state) return { error: result.error ?? "Failed." };
       applyState(result.state);
       return { error: null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const removePlayer = useCallback(
     async (playerId: string) => {
-      const result = await apiDeletePlayer(playerId);
+      const result = await apiDeletePlayer(orgId, playerId);
       if (result.state) applyState(result.state);
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const sendPaymentLink = useCallback(
     async (playerId: string) => {
-      const result = await apiSendPaymentLink(playerId);
+      const result = await apiSendPaymentLink(orgId, playerId);
       if (result.state) applyState(result.state);
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const createSession = useCallback(
     async (input: SessionInput) => {
-      const result = await apiCreateClinic(input);
+      const result = await apiCreateClinic(orgId, input);
       if (result.error || !result.state) return { error: result.error ?? "Failed." };
       applyState(result.state);
       return { error: null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const editSession = useCallback(
     async (sessionId: string, input: SessionInput) => {
-      const result = await apiUpdateClinic(sessionId, input);
+      const result = await apiUpdateClinic(orgId, sessionId, input);
       if (result.error || !result.state) return { error: result.error ?? "Failed." };
       applyState(result.state);
       return { error: null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const removeSession = useCallback(
     async (sessionId: string) => {
-      const result = await apiDeleteClinic(sessionId);
+      const result = await apiDeleteClinic(orgId, sessionId);
       if (result.state) applyState(result.state);
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const addChild = useCallback(
-    async (parentUserId: string, parentEmail: string, input: ChildInput) => {
-      const result = await apiAddChild(parentUserId, parentEmail, input);
-      if (result.error || !result.state) {
+    async (input: ChildInput) => {
+      const result = await apiAddChild(input);
+      if (result.error || !result.child) {
         return { error: result.error ?? "Failed.", childId: null };
       }
-      applyState(result.state);
-      return { error: null, childId: result.childId ?? null };
+      await refresh();
+      return { error: null, childId: result.child.id };
     },
-    [applyState],
+    [refresh],
   );
 
   const validateRegistration = useCallback(
@@ -158,12 +161,12 @@ export function usePlayerStore(initialState: AppState = sampleData) {
       clinicId: string,
       cart: import("@/lib/merchandise").CartLine[] = [],
     ) => {
-      const result = await apiEnrollPaid(playerId, programId, clinicId, cart);
+      const result = await apiEnrollPaid(orgId, playerId, programId, clinicId, cart);
       if (result.error || !result.state) return { error: result.error ?? "Failed." };
       applyState(result.state);
       return { error: null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const completePaidRegistration = useCallback(
@@ -173,60 +176,60 @@ export function usePlayerStore(initialState: AppState = sampleData) {
       clinicId: string,
       cart: import("@/lib/merchandise").CartLine[] = [],
     ) => {
-      const result = await apiEnrollPaid(playerId, programId, clinicId, cart);
+      const result = await apiEnrollPaid(orgId, playerId, programId, clinicId, cart);
       if (result.error || !result.state) return { error: result.error ?? "Failed." };
       applyState(result.state);
       return { error: null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const setProgramRegistrationOpen = useCallback(
     async (programId: string, open: boolean) => {
-      const result = await apiSetProgramOpen(programId, open);
+      const result = await apiSetProgramOpen(orgId, programId, open);
       if (result.state) applyState(result.state);
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const updateProgramDetails = useCallback(
     async (programId: string, input: ProgramInput) => {
-      const result = await apiUpdateProgram(programId, input);
+      const result = await apiUpdateProgram(orgId, programId, input);
       if (result.error || !result.state) {
         return { error: result.error ?? "Failed." };
       }
       applyState(result.state);
       return { error: null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const createProgram = useCallback(
     async (input: ProgramInput) => {
-      const result = await apiCreateProgram(input);
+      const result = await apiCreateProgram(orgId, input);
       if (result.error || !result.state) {
         return { error: result.error ?? "Failed.", programId: null };
       }
       applyState(result.state);
       return { error: null, programId: result.programId ?? null };
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const removeFromProgram = useCallback(
     async (playerId: string, programId: string) => {
-      const result = await apiRemoveFromProgram(playerId, programId);
+      const result = await apiRemoveFromProgram(orgId, playerId, programId);
       if (result.state) applyState(result.state);
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   const setClinicRegistrationAvailable = useCallback(
     async (clinicId: string, available: boolean) => {
-      const result = await apiSetClinicAvailable(clinicId, available);
+      const result = await apiSetClinicAvailable(orgId, clinicId, available);
       if (result.state) applyState(result.state);
     },
-    [applyState],
+    [applyState, orgId],
   );
 
   return {

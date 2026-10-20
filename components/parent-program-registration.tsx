@@ -108,7 +108,7 @@ export function ParentProgramRegistration({
 
     if (!user) return;
 
-    const result = await addChild(user.id, user.email, {
+    const result = await addChild({
       name: newChildName,
       grade: newChildGrade,
       level: newChildLevel,

@@ -7,8 +7,14 @@ type RegistrationStore = ReturnType<typeof usePlayerStore>;
 
 const RegistrationContext = createContext<RegistrationStore | null>(null);
 
-export function RegistrationProvider({ children }: { children: ReactNode }) {
-  const store = usePlayerStore();
+export function RegistrationProvider({
+  orgId,
+  children,
+}: {
+  orgId: string;
+  children: ReactNode;
+}) {
+  const store = usePlayerStore(orgId);
 
   if (!store.hydrated) {
     return null;

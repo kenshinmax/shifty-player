@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
+import { useOrg } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import {
   formatClinicLabel,
@@ -302,6 +303,7 @@ function StripeCheckoutForm({
   const stripe = useStripe();
   const elements = useElements();
   const { completePaidRegistration } = useRegistration();
+  const { id: orgId } = useOrg();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -337,6 +339,7 @@ function StripeCheckoutForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          orgId,
           paymentIntentId,
           playerId,
           programId,
@@ -419,6 +422,7 @@ function StripePaymentSection({
   totalCents,
   onEnrolled,
 }: StripePaymentSectionProps) {
+  const { id: orgId } = useOrg();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const cartKey = JSON.stringify(cart);
@@ -434,6 +438,7 @@ function StripePaymentSection({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            orgId,
             playerId,
             programId,
             clinicId,
@@ -464,7 +469,7 @@ function StripePaymentSection({
     };
     // cartKey tracks cart contents for PaymentIntent recreation
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerId, programId, clinicId, parentUserId, cartKey]);
+  }, [orgId, playerId, programId, clinicId, parentUserId, cartKey]);
 
   if (loadError) {
     return (
