@@ -1,14 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import {
-  ArrowRight,
   CalendarDays,
   MessagesSquare,
   Trophy,
   Users,
 } from "lucide-react";
-import type { OrgSummary } from "@/components/org-provider";
 
 const PLATFORM_FEATURES = [
   {
@@ -37,11 +34,7 @@ const PLATFORM_FEATURES = [
   },
 ] as const;
 
-export function PlatformHome({
-  organizations,
-}: {
-  organizations: OrgSummary[];
-}) {
+export function PlatformHome() {
   return (
     <div className="space-y-12" data-testid="platform-home">
       <header className="space-y-3 text-center">
@@ -79,30 +72,6 @@ export function PlatformHome({
               </li>
             );
           })}
-        </ul>
-      </section>
-
-      <section className="space-y-4" data-testid="platform-organizations">
-        <div className="border-l-4 border-brand pl-4">
-          <h2 className="font-heading text-xl font-medium">Organizations</h2>
-        </div>
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {organizations.map((org) => (
-            <li key={org.id}>
-              <Link
-                href={`/o/${org.slug}`}
-                className="group flex items-center justify-between gap-3 rounded-xl border border-l-4 border-l-brand bg-background p-5 shadow-sm transition-colors hover:bg-brand-soft"
-              >
-                <span className="font-heading text-lg font-medium">
-                  {org.name}
-                </span>
-                <ArrowRight
-                  className="size-4 text-brand-ink transition-transform group-hover:translate-x-0.5"
-                  aria-hidden
-                />
-              </Link>
-            </li>
-          ))}
         </ul>
       </section>
     </div>

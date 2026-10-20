@@ -42,16 +42,14 @@ test("admin creates a draft organization, switches orgs, then publishes it", asy
   await page.getByRole("option", { name: "Shifty Player" }).click();
   await expect(page).toHaveURL(/\/o\/shifty-player\/admin$/);
 
-  // Publish the draft; it then shows on the platform home for visitors.
+  // Publish the draft; visitors can then open its pages.
   await page.getByTestId("dashboard-nav-organizations").click();
   const row = page.getByTestId(`organization-row-${slug}`);
   await expect(row).toContainText("draft");
   await row.getByRole("button", { name: "Publish" }).click();
   await expect(row).toContainText("live");
 
-  await visitor.goto("/");
-  await expect(
-    visitor.getByTestId("platform-organizations").getByRole("link", { name }),
-  ).toHaveAttribute("href", `/o/${slug}`);
+  await visitor.goto(`/o/${slug}`);
+  await expect(visitor.getByTestId("home-jumbotron")).toBeVisible();
   await visitor.close();
 });

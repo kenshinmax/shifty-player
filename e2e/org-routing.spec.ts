@@ -18,18 +18,11 @@ async function resetAndSignIn(page: Page, account: "admin" | "user") {
   );
 }
 
-test("platform home links to the organization", async ({ page }) => {
+test("platform home does not list organizations", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByTestId("home-platform")).toBeVisible();
-  const orgCard = page
-    .getByTestId("platform-organizations")
-    .getByRole("link", { name: "Shifty Player" });
-  await expect(orgCard).toHaveAttribute("href", "/o/shifty-player");
-
-  await orgCard.click();
-  await expect(page).toHaveURL(/\/o\/shifty-player$/);
-  await expect(page.getByTestId("home-jumbotron")).toBeVisible();
+  await expect(page.getByTestId("platform-home").locator('a[href^="/o/"]')).toHaveCount(0);
 });
 
 test("unknown organization shows the 404 page", async ({ page }) => {
