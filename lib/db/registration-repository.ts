@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/legacy-state";
 import { diffOrgDocuments, isEmptyWriteOps } from "@/lib/db/org-diff";
 import { forOrg, visibleChildIds } from "@/lib/db/org-repository";
+import { ensureDefaultOrganization } from "@/lib/db/platform-repository";
 import { DEFAULT_ORG_ID, defaultOrganization } from "@/lib/organizations";
 import { buildSeatCounts } from "@/lib/programs";
 import { normalizeRegistrationState } from "@/lib/storage";
@@ -94,11 +95,6 @@ function enqueueRegistrationWrite<T>(task: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return next;
-}
-
-async function ensureDefaultOrganization(): Promise<void> {
-  // false means it already exists, which is fine.
-  await getDocStore().insertOne("organizations", defaultOrganization());
 }
 
 /** The default org is created on demand; any other org must already exist. */
