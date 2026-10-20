@@ -295,6 +295,11 @@ export async function updateProgramInDb(
   return mutateAppState(orgId, (state) => updateProgram(state, programId, input));
 }
 
+/** Program ids in a body must belong to this org's state. */
+function hasProgram(state: AppState, programId: string): boolean {
+  return state.programs.some((program) => program.id === programId);
+}
+
 export async function createClinicInDb(
   orgId: string,
   input: SessionInput,
@@ -303,6 +308,9 @@ export async function createClinicInDb(
   if (validationError) return { error: validationError };
 
   return mutateAppState(orgId, (state) => {
+    if (input.programId && !hasProgram(state, input.programId)) {
+      return { error: "Program not found." };
+    }
     const programId =
       input.programId ??
       state.programs.find((program) => program.status === "trending")?.id ??
@@ -335,6 +343,9 @@ export async function updateClinicInDb(
   return mutateAppState(orgId, (state) => {
     const existing = state.sessions.find((session) => session.id === clinicId);
     if (!existing) return { error: "Clinic not found." };
+    if (input.programId && !hasProgram(state, input.programId)) {
+      return { error: "Program not found." };
+    }
     return updateSession(state, clinicId, {
       programId: input.programId ?? existing.programId,
       year: input.year,

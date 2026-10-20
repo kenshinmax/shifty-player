@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDocStore, resetMemoryStore } from "@/lib/db/doc-store";
 import {
   getOrganizationById,
@@ -18,6 +18,16 @@ describe("platform repository", () => {
   it("finds the default org by slug and id, creating it on demand", async () => {
     expect((await getOrganizationBySlug(DEFAULT_ORG_SLUG))?.id).toBe(DEFAULT_ORG_ID);
     expect((await getOrganizationById(DEFAULT_ORG_ID))?.slug).toBe(DEFAULT_ORG_SLUG);
+  });
+
+  it("only inserts the default org when it is missing", async () => {
+    const store = getDocStore();
+    const insertOne = vi.spyOn(store, "insertOne");
+    await getOrganizationById(DEFAULT_ORG_ID);
+    await getOrganizationBySlug(DEFAULT_ORG_SLUG);
+    await listLiveOrganizations();
+    expect(insertOne).toHaveBeenCalledTimes(1);
+    insertOne.mockRestore();
   });
 
   it("returns null for an unknown slug or id", async () => {

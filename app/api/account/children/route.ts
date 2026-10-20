@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveViewer } from "@/lib/api-viewer";
 import { addChild } from "@/lib/db/family-repository";
 import type { ChildInput } from "@/lib/player-store";
-import type { Level } from "@/lib/types";
+import { LEVELS, type Level } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +20,12 @@ export async function POST(request: Request) {
     body = (await request.json()) as Body;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+  if (typeof body !== "object" || body === null) {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+  if (!LEVELS.includes(body.level as Level)) {
+    return NextResponse.json({ error: "Level is required." }, { status: 400 });
   }
 
   const input: ChildInput = {

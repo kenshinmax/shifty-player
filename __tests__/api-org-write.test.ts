@@ -7,6 +7,7 @@ import {
   DELETE as deleteClinic,
   PATCH as patchClinic,
 } from "@/app/api/orgs/[orgId]/clinics/[clinicId]/route";
+import { POST as postClinic } from "@/app/api/orgs/[orgId]/clinics/route";
 import { POST as postPlayer } from "@/app/api/orgs/[orgId]/players/route";
 import {
   DELETE as deletePlayer,
@@ -126,6 +127,13 @@ describe("org mutation APIs", () => {
         patchProgram(request(c, PROGRAM_INPUT, "PATCH"), ctx({ programId: B_PROGRAM }))],
       ["program open toggle", (c) =>
         patchProgram(request(c, { open: false }, "PATCH"), ctx({ programId: B_PROGRAM }))],
+      ["clinic POST", (c) =>
+        postClinic(request(c, { ...CLINIC_INPUT, programId: B_PROGRAM }), ctx({}))],
+      ["clinic PATCH to another org's program", (c) =>
+        patchClinic(
+          request(c, { ...CLINIC_INPUT, programId: B_PROGRAM }, "PATCH"),
+          ctx({ clinicId: "clinic-summer-2026-w1" }),
+        )],
       ["clinic PATCH", (c) =>
         patchClinic(request(c, CLINIC_INPUT, "PATCH"), ctx({ clinicId: B_CLINIC }))],
       ["clinic DELETE", (c) =>

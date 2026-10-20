@@ -144,4 +144,26 @@ describe("org state and account read APIs", () => {
     );
     expect(bad.status).toBe(400);
   });
+
+  it("adding a child rejects a non-object body and an unknown level", async () => {
+    const post = async (body: string) =>
+      postChild(
+        new Request("http://localhost/api/account/children", {
+          method: "POST",
+          headers: await cookieFor("user-1"),
+          body,
+        }),
+      );
+    for (const body of ["null", "42", '"Casey"']) {
+      const res = await post(body);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Invalid JSON body." });
+    }
+    for (const level of ["expert", 3, undefined]) {
+      const res = await post(JSON.stringify({ name: "Casey", grade: "4", level }));
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Level is required." });
+    }
+    expect(await getDocStore().count("children", { name: "Casey" })).toBe(0);
+  });
 });
