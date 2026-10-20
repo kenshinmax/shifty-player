@@ -38,6 +38,8 @@ export function getStripe(): Stripe {
 }
 
 export type PaymentIntentMetadataInput = {
+  /** Organization the clinic belongs to; the webhook enrolls there. */
+  orgId: string;
   playerId: string;
   programId: string;
   clinicId: string;
@@ -58,6 +60,7 @@ export function buildPaymentIntentMetadata(
   const swagCents = computeSwagCents(cart);
   const amountCents = computeRegistrationTotalCents(cart, tuitionCents);
   return {
+    orgId: input.orgId,
     playerId: input.playerId,
     programId: input.programId,
     clinicId: input.clinicId,

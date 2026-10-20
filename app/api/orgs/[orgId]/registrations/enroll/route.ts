@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { enrollPaidInDb, getRegistrationState } from "@/lib/db/registration-repository";
-import { DEFAULT_ORG_ID } from "@/lib/organizations";
+import {
+  requireEnrollableChild,
+  requireLiveOrg,
+  resolveViewer,
+  signInRequired,
+} from "@/lib/api-viewer";
+import { enrollPaidInDb, getStateForViewer } from "@/lib/db/registration-repository";
 import {
   buildMerchandiseOrder,
   parseCart,
@@ -26,7 +31,16 @@ function requireString(value: unknown): string | null {
  * Server-side paid enrollment. Used by demo checkout and after Stripe verify.
  * Accepts optional cart for merchandise order snapshot.
  */
-export async function POST(request: Request) {
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ orgId: string }> },
+) {
+  const { orgId } = await context.params;
+  const found = await requireLiveOrg(orgId);
+  if (found.error) return found.error;
+  const { user, viewer } = await resolveViewer(request);
+  if (!user) return signInRequired();
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -49,8 +63,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: cartResult.error }, { status: 400 });
   }
 
-  const state = await getRegistrationState(DEFAULT_ORG_ID);
-  const clinic = state.sessions.find((session) => session.id === clinicId);
+  const access = await requireEnrollableChild(user, orgId, playerId);
+  if (access.error) return access.error;
+  const clinic = access.state.sessions.find((session) => session.id === clinicId);
   if (!clinic) {
     return NextResponse.json({ error: "Clinic not found." }, { status: 404 });
   }
@@ -62,7 +77,7 @@ export async function POST(request: Request) {
     getClinicTuitionCents(clinic),
   );
   const result = await enrollPaidInDb(
-    DEFAULT_ORG_ID,
+    orgId,
     playerId,
     programId,
     clinicId,
@@ -72,5 +87,5 @@ export async function POST(request: Request) {
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
-  return NextResponse.json({ state: result.state });
+  return NextResponse.json({ state: await getStateForViewer(orgId, viewer) });
 }

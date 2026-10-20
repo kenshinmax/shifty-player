@@ -14,7 +14,6 @@ import { normalizeRegistrationState } from "@/lib/storage";
 import { sampleData } from "@/lib/sample-data";
 import type { AppState, Child, Enrollment, Organization, Session } from "@/lib/types";
 import {
-  addChildForParent,
   addPlayer,
   addProgram,
   addSession,
@@ -28,11 +27,9 @@ import {
   updateProgram,
   updatePlayer,
   updateSession,
-  type ChildInput,
   type PlayerInput,
   type ProgramInput,
   type SessionInput,
-  validateChildInput,
   validatePlayerInput,
   validateProgramInput,
   validateSessionInput,
@@ -446,25 +443,6 @@ export async function deletePlayerInDb(
   });
 }
 
-export async function addChildInDb(
-  parentUserId: string,
-  parentEmail: string,
-  input: ChildInput,
-): Promise<{ state: AppState; childId: string } | { error: string }> {
-  const validationError = validateChildInput(input);
-  if (validationError) return { error: validationError };
-
-  let childId: string | null = null;
-  const result = await mutateAppState(DEFAULT_ORG_ID, (state) => {
-    const next = addChildForParent(state, parentUserId, parentEmail, input);
-    childId = next.players.at(-1)?.id ?? null;
-    return next;
-  });
-  if ("error" in result) return result;
-  if (!childId) return { error: "Failed to add child." };
-  return { state: result.state, childId };
-}
-
 export async function markPaymentLinkSentInDb(
   orgId: string,
   playerId: string,
@@ -481,9 +459,13 @@ export async function removePlayerFromProgramInDb(
   playerId: string,
   programId: string,
 ): Promise<{ state: AppState } | { error: string }> {
-  return mutateAppState(orgId, (state) =>
-    removePlayerFromProgram(state, playerId, programId),
-  );
+  return mutateAppState(orgId, (state, { visible }) => {
+    if (!state.programs.some((program) => program.id === programId)) {
+      return { error: "Program not found." };
+    }
+    if (!visible.has(playerId)) return { error: "Player not found." };
+    return removePlayerFromProgram(state, playerId, programId);
+  });
 }
 
 /**

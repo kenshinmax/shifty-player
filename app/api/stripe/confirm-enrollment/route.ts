@@ -1,12 +1,17 @@
 import { after, NextResponse } from "next/server";
+import {
+  requireEnrollableChild,
+  requireLiveOrg,
+  resolveViewer,
+  signInRequired,
+} from "@/lib/api-viewer";
 import { syncEnrollmentToHubSpot } from "@/lib/hubspot-sync";
 import { buildMerchandiseOrder } from "@/lib/merchandise";
 import {
   claimProcessedPayment,
   enrollPaidInDb,
-  getRegistrationState,
+  getStateForViewer,
 } from "@/lib/db/registration-repository";
-import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import { getClinicTuitionCents } from "@/lib/programs";
 import {
   approveEnrollmentFromPaymentIntent,
@@ -17,6 +22,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ConfirmEnrollmentBody = {
+  orgId?: unknown;
   paymentIntentId?: unknown;
   playerId?: unknown;
   programId?: unknown;
@@ -41,6 +47,9 @@ export async function POST(request: Request) {
     );
   }
 
+  const { user, viewer } = await resolveViewer(request);
+  if (!user) return signInRequired();
+
   let body: ConfirmEnrollmentBody;
   try {
     body = (await request.json()) as ConfirmEnrollmentBody;
@@ -48,24 +57,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  const orgId = requireNonEmptyString(body.orgId);
   const paymentIntentId = requireNonEmptyString(body.paymentIntentId);
   const playerId = requireNonEmptyString(body.playerId);
   const programId = requireNonEmptyString(body.programId);
   const clinicId = requireNonEmptyString(body.clinicId);
 
-  if (!paymentIntentId || !playerId || !programId || !clinicId) {
+  if (!orgId || !paymentIntentId || !playerId || !programId || !clinicId) {
     return NextResponse.json(
       {
         error:
-          "paymentIntentId, playerId, programId, and clinicId are required.",
+          "orgId, paymentIntentId, playerId, programId, and clinicId are required.",
       },
       { status: 400 },
     );
   }
 
+  const found = await requireLiveOrg(orgId);
+  if (found.error) return found.error;
+
   try {
-    const state = await getRegistrationState(DEFAULT_ORG_ID);
-    const clinic = state.sessions.find((session) => session.id === clinicId);
+    const access = await requireEnrollableChild(user, orgId, playerId);
+    if (access.error) return access.error;
+    const clinic = access.state.sessions.find((session) => session.id === clinicId);
     if (!clinic) {
       return NextResponse.json(
         { approved: false, error: "Clinic not found." },
@@ -96,7 +110,7 @@ export async function POST(request: Request) {
       result.tuitionCents,
     );
     const enrolled = await enrollPaidInDb(
-      DEFAULT_ORG_ID,
+      orgId,
       playerId,
       programId,
       clinicId,
@@ -124,7 +138,10 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ approved: true, state: enrolled.state });
+    return NextResponse.json({
+      approved: true,
+      state: await getStateForViewer(orgId, viewer),
+    });
   } catch (error) {
     const message =
       error instanceof Error

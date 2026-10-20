@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { getRegistrationState } from "@/lib/db/registration-repository";
-import { DEFAULT_ORG_ID } from "@/lib/organizations";
+import {
+  requireEnrollableChild,
+  requireLiveOrg,
+  resolveViewer,
+  signInRequired,
+} from "@/lib/api-viewer";
 import {
   parseCart,
   computeRegistrationTotalCents,
@@ -17,10 +21,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type CreatePaymentIntentBody = {
+  orgId?: unknown;
   playerId?: unknown;
   programId?: unknown;
   clinicId?: unknown;
-  parentUserId?: unknown;
   cart?: unknown;
 };
 
@@ -43,6 +47,9 @@ export async function POST(request: Request) {
     );
   }
 
+  const { user } = await resolveViewer(request);
+  if (!user) return signInRequired();
+
   let body: CreatePaymentIntentBody;
   try {
     body = (await request.json()) as CreatePaymentIntentBody;
@@ -50,16 +57,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  const orgId = requireNonEmptyString(body.orgId);
   const playerId = requireNonEmptyString(body.playerId);
   const programId = requireNonEmptyString(body.programId);
   const clinicId = requireNonEmptyString(body.clinicId);
-  const parentUserId = requireNonEmptyString(body.parentUserId);
+  // The payer is the session user, never a body-supplied id.
+  const parentUserId = user.id;
 
-  if (!playerId || !programId || !clinicId || !parentUserId) {
+  if (!orgId || !playerId || !programId || !clinicId) {
     return NextResponse.json(
       {
-        error:
-          "playerId, programId, clinicId, and parentUserId are required.",
+        error: "orgId, playerId, programId, and clinicId are required.",
       },
       { status: 400 },
     );
@@ -71,8 +79,11 @@ export async function POST(request: Request) {
   }
   const cart = cartResult;
 
-  const state = await getRegistrationState(DEFAULT_ORG_ID);
-  const clinic = state.sessions.find((session) => session.id === clinicId);
+  const found = await requireLiveOrg(orgId);
+  if (found.error) return found.error;
+  const access = await requireEnrollableChild(user, orgId, playerId);
+  if (access.error) return access.error;
+  const clinic = access.state.sessions.find((session) => session.id === clinicId);
   if (!clinic) {
     return NextResponse.json({ error: "Clinic not found." }, { status: 404 });
   }
@@ -93,6 +104,7 @@ export async function POST(request: Request) {
       currency: STRIPE_CURRENCY,
       automatic_payment_methods: { enabled: true },
       metadata: buildPaymentIntentMetadata({
+        orgId,
         playerId,
         programId,
         clinicId,

@@ -17,12 +17,12 @@ export function buildPaymentLink(player: Player): string {
  * Stripe confirmation model:
  *
  * 1. Server creates a PaymentIntent with metadata:
- *    { playerId, programId, clinicId, parentUserId, amountCents }
+ *    { orgId, playerId, programId, clinicId, parentUserId, amountCents }
  * 2. Client confirms with Stripe Payment Element (card never hits our servers).
  * 3. Client calls confirm-enrollment; server retrieves the PaymentIntent,
  *    checks status / amount / metadata, then **enrolls in MongoDB**.
  * 4. Webhook `payment_intent.succeeded` also enrolls idempotently + metrics.
- * 5. Client refreshes state from `GET /api/state` (no localStorage enrollment).
+ * 5. Client refreshes state from `GET /api/orgs/[orgId]/state` (no localStorage enrollment).
  */
 export const STRIPE_ENROLLMENT_SOURCE = "stripe.payment_intent.succeeded";
 

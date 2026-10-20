@@ -8,6 +8,7 @@ import {
   enrollPaidInDb,
   getRegistrationState,
 } from "@/lib/db/registration-repository";
+import { getOrganizationById } from "@/lib/db/platform-repository";
 import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import { getClinicTuitionCents } from "@/lib/programs";
 import {
@@ -66,9 +67,16 @@ export async function POST(request: Request) {
     const playerId = paymentIntent.metadata.playerId;
     const programId = paymentIntent.metadata.programId;
     const clinicId = paymentIntent.metadata.clinicId;
+    // Intents created before orgs existed carry no orgId.
+    const orgId = paymentIntent.metadata.orgId ?? DEFAULT_ORG_ID;
     let enrolledState: AppState | null = null;
-    if (playerId && programId && clinicId) {
-      const state = await getRegistrationState(DEFAULT_ORG_ID);
+    const org = await getOrganizationById(orgId);
+    if (!org) {
+      console.warn(
+        `Stripe webhook: organization ${orgId} not found; ${paymentIntent.id} not enrolled.`,
+      );
+    } else if (playerId && programId && clinicId) {
+      const state = await getRegistrationState(orgId);
       const clinic = state.sessions.find((session) => session.id === clinicId);
       const tuitionCents = clinic
         ? getClinicTuitionCents(clinic)
@@ -87,7 +95,7 @@ export async function POST(request: Request) {
           evaluation.tuitionCents,
         );
         const enrolled = await enrollPaidInDb(
-          DEFAULT_ORG_ID,
+          orgId,
           playerId,
           programId,
           clinicId,

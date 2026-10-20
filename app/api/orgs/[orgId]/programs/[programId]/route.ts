@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
+import { ADMIN_VIEWER, requireLiveOrg } from "@/lib/api-viewer";
 import {
+  getStateForViewer,
   setProgramOpenInDb,
   updateProgramInDb,
 } from "@/lib/db/registration-repository";
-import { DEFAULT_ORG_ID } from "@/lib/organizations";
 import type { ProgramInput } from "@/lib/player-store";
 
 export const runtime = "nodejs";
@@ -14,12 +15,14 @@ type PatchBody = Partial<ProgramInput> & { open?: unknown };
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ programId: string }> },
+  context: { params: Promise<{ orgId: string; programId: string }> },
 ) {
+  const { orgId, programId } = await context.params;
+  const found = await requireLiveOrg(orgId);
+  if (found.error) return found.error;
   const auth = await requireAdmin(request);
   if (auth.error) return auth.error;
 
-  const { programId } = await context.params;
   let body: PatchBody;
   try {
     body = (await request.json()) as PatchBody;
@@ -34,11 +37,11 @@ export async function PATCH(
     body.description === undefined &&
     body.startDate === undefined
   ) {
-    const result = await setProgramOpenInDb(DEFAULT_ORG_ID, programId, body.open);
+    const result = await setProgramOpenInDb(orgId, programId, body.open);
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    return NextResponse.json({ state: result.state });
+    return NextResponse.json({ state: await getStateForViewer(orgId, ADMIN_VIEWER) });
   }
 
   const input: ProgramInput = {
@@ -52,9 +55,9 @@ export async function PATCH(
       typeof body.location === "string" ? body.location : undefined,
   };
 
-  const result = await updateProgramInDb(DEFAULT_ORG_ID, programId, input);
+  const result = await updateProgramInDb(orgId, programId, input);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
-  return NextResponse.json({ state: result.state });
+  return NextResponse.json({ state: await getStateForViewer(orgId, ADMIN_VIEWER) });
 }
