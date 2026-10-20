@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH as patchProgram } from "@/app/api/orgs/[orgId]/programs/[programId]/route";
 import { POST as removeFromProgram } from "@/app/api/orgs/[orgId]/programs/[programId]/players/[playerId]/remove/route";
 import {
@@ -194,6 +194,8 @@ describe("org mutation APIs", () => {
   });
 
   it("parent enrolls their own child and sees only their children", async () => {
+    // Without Stripe this is the demo checkout.
+    vi.stubEnv("STRIPE_SECRET_KEY", "");
     const res = await postEnroll(request(await cookieFor("user-1"), ENROLL), ctx({}));
     expect(res.status).toBe(200);
     const { state } = await res.json();
@@ -203,6 +205,39 @@ describe("org mutation APIs", () => {
     ).toBe(true);
     const child = state.players.find((p: { id: string }) => p.id === ENROLL.playerId);
     expect(child.sessionIds).toContain(ENROLL.clinicId);
+    vi.unstubAllEnvs();
+  });
+
+  describe("enroll when Stripe is configured", () => {
+    beforeEach(() => {
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("rejects a parent's unpaid enrollment", async () => {
+      const store = getDocStore();
+      const before = {
+        enrollments: await store.find("enrollments", {}),
+        orders: await store.find("orders", {}),
+      };
+      const res = await postEnroll(request(await cookieFor("user-1"), ENROLL), ctx({}));
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "Online payment is required." });
+      expect({
+        enrollments: await store.find("enrollments", {}),
+        orders: await store.find("orders", {}),
+      }).toEqual(before);
+    });
+
+    it("still lets an admin enroll", async () => {
+      const res = await postEnroll(request(await cookieFor("admin-1"), ENROLL), ctx({}));
+      expect(res.status).toBe(200);
+      const { state } = await res.json();
+      const child = state.players.find((p: { id: string }) => p.id === ENROLL.playerId);
+      expect(child.sessionIds).toContain(ENROLL.clinicId);
+    });
   });
 
   it("enroll rejects another parent's child", async () => {

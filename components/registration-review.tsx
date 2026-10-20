@@ -50,7 +50,7 @@ import {
   type MerchandiseSkuId,
 } from "@/lib/merchandise";
 import { emitMetricsEvent } from "@/lib/metrics-client";
-import { formatSessionStatus } from "@/lib/types";
+import { formatSessionStatus, type AppState } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function initials(name: string): string {
@@ -285,7 +285,6 @@ type StripeCheckoutFormProps = {
   clinicId: string;
   playerName: string;
   clinicLabel: string;
-  cart: CartLine[];
   totalCents: number;
   onEnrolled: (message: string) => void;
 };
@@ -296,13 +295,12 @@ function StripeCheckoutForm({
   clinicId,
   playerName,
   clinicLabel,
-  cart,
   totalCents,
   onEnrolled,
 }: StripeCheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
-  const { completePaidRegistration } = useRegistration();
+  const { applyState } = useRegistration();
   const { id: orgId } = useOrg();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -349,6 +347,7 @@ function StripeCheckoutForm({
       const verifyBody = (await verifyResponse.json()) as {
         approved?: boolean;
         error?: string;
+        state?: AppState;
       };
 
       if (!verifyResponse.ok || !verifyBody.approved) {
@@ -358,7 +357,8 @@ function StripeCheckoutForm({
         return;
       }
 
-      await completePaidRegistration(playerId, programId, clinicId, cart);
+      // confirm-enrollment already enrolled the player; show its state.
+      applyState(verifyBody.state);
 
       emitMetricsEvent("payment_succeeded");
       onEnrolled(
@@ -502,7 +502,6 @@ function StripePaymentSection({
         clinicId={clinicId}
         playerName={playerName}
         clinicLabel={clinicLabel}
-        cart={cart}
         totalCents={totalCents}
         onEnrolled={onEnrolled}
       />

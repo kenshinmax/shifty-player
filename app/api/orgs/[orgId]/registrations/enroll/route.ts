@@ -11,6 +11,7 @@ import {
   parseCart,
 } from "@/lib/merchandise";
 import { getClinicTuitionCents } from "@/lib/programs";
+import { isStripeConfigured } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,8 +29,9 @@ function requireString(value: unknown): string | null {
 }
 
 /**
- * Server-side paid enrollment. Used by demo checkout and after Stripe verify.
- * Accepts optional cart for merchandise order snapshot.
+ * Server-side paid enrollment without a payment. Used by the demo checkout, and
+ * by admins once Stripe is configured; parents then pay through
+ * /api/stripe/confirm-enrollment. Accepts optional cart for merchandise order snapshot.
  */
 export async function POST(
   request: Request,
@@ -40,6 +42,9 @@ export async function POST(
   if (found.error) return found.error;
   const { user, viewer } = await resolveViewer(request);
   if (!user) return signInRequired();
+  if (isStripeConfigured() && viewer.kind !== "admin") {
+    return NextResponse.json({ error: "Online payment is required." }, { status: 409 });
+  }
 
   let body: Body;
   try {

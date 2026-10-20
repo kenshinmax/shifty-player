@@ -240,6 +240,7 @@ export function usePlayerStore(
     hydrated,
     syncFromStorage,
     refresh,
+    applyState,
     createPlayer,
     editPlayer,
     removePlayer,
