@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   requireEnrollableChild,
-  requireLiveOrg,
+  requireOrg,
   resolveViewer,
   signInRequired,
 } from "@/lib/api-viewer";
@@ -38,7 +38,7 @@ export async function POST(
   context: { params: Promise<{ orgId: string }> },
 ) {
   const { orgId } = await context.params;
-  const found = await requireLiveOrg(orgId);
+  const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
   const { user, viewer } = await resolveViewer(request);
   if (!user) return signInRequired();

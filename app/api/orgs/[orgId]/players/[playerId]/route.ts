@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
-import { ADMIN_VIEWER, requireLiveOrg } from "@/lib/api-viewer";
+import { ADMIN_VIEWER, requireOrg } from "@/lib/api-viewer";
 import {
   deletePlayerInDb,
   getStateForViewer,
@@ -16,7 +16,7 @@ export async function PATCH(
   context: { params: Promise<{ orgId: string; playerId: string }> },
 ) {
   const { orgId, playerId } = await context.params;
-  const found = await requireLiveOrg(orgId);
+  const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
   const auth = await requireAdmin(request);
   if (auth.error) return auth.error;
@@ -40,7 +40,7 @@ export async function DELETE(
   context: { params: Promise<{ orgId: string; playerId: string }> },
 ) {
   const { orgId, playerId } = await context.params;
-  const found = await requireLiveOrg(orgId);
+  const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
   const auth = await requireAdmin(request);
   if (auth.error) return auth.error;

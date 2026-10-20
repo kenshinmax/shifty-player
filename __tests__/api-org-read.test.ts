@@ -80,6 +80,25 @@ describe("org state and account read APIs", () => {
     expect(res.status).toBe(404);
   });
 
+  it("draft org is 404 for the public and parents but open to admins", async () => {
+    await getDocStore().insertOne("organizations", {
+      ...defaultOrganization(),
+      id: "org-draft",
+      slug: "draft-org",
+      name: "Draft Org",
+      status: "draft",
+      hubspotEnabled: false,
+    });
+    expect((await getOrgState(stateRequest(), ctx("org-draft"))).status).toBe(404);
+    expect(
+      (await getOrgState(stateRequest(await cookieFor("user-1")), ctx("org-draft"))).status,
+    ).toBe(404);
+    const res = await getOrgState(stateRequest(await cookieFor("admin-1")), ctx("org-draft"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.state).toMatchObject({ programs: [], sessions: [], players: [] });
+  });
+
   it("account requires sign-in", async () => {
     const res = await getAccount(new Request("http://localhost/api/account"));
     expect(res.status).toBe(401);

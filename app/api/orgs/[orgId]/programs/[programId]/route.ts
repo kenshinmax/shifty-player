@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
-import { ADMIN_VIEWER, requireLiveOrg } from "@/lib/api-viewer";
+import { ADMIN_VIEWER, requireOrg } from "@/lib/api-viewer";
 import {
   getStateForViewer,
   setProgramOpenInDb,
@@ -18,7 +18,7 @@ export async function PATCH(
   context: { params: Promise<{ orgId: string; programId: string }> },
 ) {
   const { orgId, programId } = await context.params;
-  const found = await requireLiveOrg(orgId);
+  const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
   const auth = await requireAdmin(request);
   if (auth.error) return auth.error;

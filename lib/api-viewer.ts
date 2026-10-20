@@ -26,13 +26,19 @@ export function orgNotFound(): NextResponse {
   return NextResponse.json({ error: ORG_NOT_FOUND }, { status: 404 });
 }
 
-/** Only live orgs are reachable; missing and non-live orgs look identical. */
-export async function requireLiveOrg(
+/**
+ * Live orgs are reachable by everyone. Admins can also open draft (or
+ * suspended) orgs; for anyone else missing and non-live orgs look identical.
+ */
+export async function requireOrg(
   orgId: string,
+  request: Request,
 ): Promise<{ org: Organization; error?: undefined } | { org?: undefined; error: NextResponse }> {
   const org = await getOrganizationById(orgId);
-  if (!org || org.status !== "live") return { error: orgNotFound() };
-  return { org };
+  if (!org) return { error: orgNotFound() };
+  if (org.status === "live") return { org };
+  const { viewer } = await resolveViewer(request);
+  return viewer.kind === "admin" ? { org } : { error: orgNotFound() };
 }
 
 export function signInRequired(): NextResponse {

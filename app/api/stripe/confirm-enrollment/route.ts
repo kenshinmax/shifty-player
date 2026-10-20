@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import {
   requireEnrollableChild,
-  requireLiveOrg,
+  requireOrg,
   resolveViewer,
   signInRequired,
 } from "@/lib/api-viewer";
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const found = await requireLiveOrg(orgId);
+  const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
 
   try {

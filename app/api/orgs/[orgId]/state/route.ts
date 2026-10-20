@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireLiveOrg, resolveViewer } from "@/lib/api-viewer";
+import { requireOrg, resolveViewer } from "@/lib/api-viewer";
 import { getStateForViewer } from "@/lib/db/registration-repository";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(
   context: { params: Promise<{ orgId: string }> },
 ) {
   const { orgId } = await context.params;
-  const found = await requireLiveOrg(orgId);
+  const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
 
   const { viewer } = await resolveViewer(request);

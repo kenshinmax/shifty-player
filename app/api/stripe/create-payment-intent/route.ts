@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   requireEnrollableChild,
-  requireLiveOrg,
+  requireOrg,
   resolveViewer,
   signInRequired,
 } from "@/lib/api-viewer";
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   }
   const cart = cartResult;
 
-  const found = await requireLiveOrg(orgId);
+  const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
   const access = await requireEnrollableChild(user, orgId, playerId);
   if (access.error) return access.error;
