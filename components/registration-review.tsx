@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
-import { useOrg } from "@/components/org-provider";
+import { useOrg, useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import {
   formatClinicLabel,
@@ -389,7 +389,7 @@ function StripeCheckoutForm({
           {submitting ? "Processing…" : `Pay ${formatCents(totalCents)}`}
         </Button>
         <Link
-          href="/player"
+          href="/account"
           className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
         >
           Cancel
@@ -656,7 +656,7 @@ function DemoPaymentForm({
           Pay {formatCents(totalCents)}
         </Button>
         <Link
-          href="/player"
+          href="/account"
           className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
         >
           Cancel
@@ -674,6 +674,7 @@ export function RegistrationReview() {
 
   const { user, canViewPlayerDashboard } = useAuth();
   const { state } = useRegistration();
+  const orgHref = useOrgHref();
 
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
@@ -713,13 +714,13 @@ export function RegistrationReview() {
       return;
     }
     if (!canViewPlayerDashboard) {
-      router.replace("/dashboard");
+      router.replace(orgHref("/admin"));
     }
-  }, [user, canViewPlayerDashboard, router]);
+  }, [user, canViewPlayerDashboard, router, orgHref]);
 
   useEffect(() => {
     if (user && player && player.parentUserId !== user.id) {
-      router.replace("/player");
+      router.replace("/account");
     }
   }, [user, player, router]);
 
@@ -734,7 +735,7 @@ export function RegistrationReview() {
           Registration details could not be found.
         </p>
         <Link
-          href="/player"
+          href="/account"
           className={cn(buttonVariants({ variant: "default" }))}
         >
           Back to dashboard
@@ -752,7 +753,7 @@ export function RegistrationReview() {
   const handleEnrolled = (message: string) => {
     setIsPaid(true);
     setPaymentMessage(message);
-    router.push("/player");
+    router.push("/account");
   };
 
   return (
@@ -762,7 +763,7 @@ export function RegistrationReview() {
     >
       <header className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          <Link href="/player" className="underline-offset-4 hover:underline">
+          <Link href="/account" className="underline-offset-4 hover:underline">
             My Dashboard
           </Link>
           {" / "}
@@ -889,7 +890,7 @@ export function RegistrationReview() {
                   `${player.name} is enrolled in ${clinicLabel}.`}
               </p>
               <Link
-                href="/player"
+                href="/account"
                 className={cn(buttonVariants({ variant: "default", size: "lg" }))}
               >
                 Back to dashboard

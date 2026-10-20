@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
+import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -61,14 +62,15 @@ export function ClinicsContent() {
   const router = useRouter();
   const { user, canAddPlayer } = useAuth();
   const { state, countPlayersForSession } = useRegistration();
+  const orgHref = useOrgHref();
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const latestProgram = useMemo(
+  const latestSession = useMemo(
     () => sortSessionsByRecent(state.sessions)[0],
     [state.sessions],
   );
 
-  if (!latestProgram) {
+  if (!latestSession) {
     return (
       <div className="space-y-2">
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
@@ -81,8 +83,8 @@ export function ClinicsContent() {
     );
   }
 
-  const playerCount = countPlayersForSession(latestProgram.id);
-  const programTitle = latestProgram.label ?? formatMonth(latestProgram.month);
+  const playerCount = countPlayersForSession(latestSession.id);
+  const programTitle = latestSession.label ?? formatMonth(latestSession.month);
 
   const openRegisterFlow = () => {
     // Players are added from the dashboard; signed-in users go straight there.
@@ -133,10 +135,10 @@ export function ClinicsContent() {
 
             <div className="flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <Badge className="border-white/20 bg-white/15 text-white hover:bg-white/20">
-                {formatMonth(latestProgram.month)} {latestProgram.year}
+                {formatMonth(latestSession.month)} {latestSession.year}
               </Badge>
               <Badge className="border-white/20 bg-white/15 text-white hover:bg-white/20">
-                {formatSessionStatus(latestProgram.status)}
+                {formatSessionStatus(latestSession.status)}
               </Badge>
               <Badge className="border-white/20 bg-white/15 text-white hover:bg-white/20">
                 {playerCount} registered
@@ -162,7 +164,7 @@ export function ClinicsContent() {
                 )}
               </Button>
               <Link
-                href="/programs"
+                href={orgHref("/programs")}
                 className={cn(
                   buttonVariants({ variant: "outline", size: "lg" }),
                   "border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white",

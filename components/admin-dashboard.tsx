@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Menu, UserPlus, X } from "lucide-react";
 import { AdminScheduleAvailability } from "@/components/admin-schedule-availability";
 import { useAuth } from "@/components/auth-provider";
+import { useOrgHref } from "@/components/org-provider";
 import { FinancialsPlayersTable } from "@/components/financials-players-table";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { PlayersRosterGrid } from "@/components/players-roster-grid";
@@ -79,6 +80,7 @@ function NavButtons({
 export function AdminDashboard() {
   const router = useRouter();
   const { user, canViewDashboard, canEdit } = useAuth();
+  const orgHref = useOrgHref();
   const {
     state,
     syncFromStorage,
@@ -96,9 +98,9 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (!canViewDashboard) {
-      router.replace(user?.role === "user" ? "/player" : "/");
+      router.replace(user?.role === "user" ? "/account" : orgHref("/"));
     }
-  }, [canViewDashboard, router, user?.role]);
+  }, [canViewDashboard, router, user?.role, orgHref]);
 
   if (!canViewDashboard || !user) {
     return <p className="text-muted-foreground">Redirecting…</p>;

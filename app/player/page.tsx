@@ -6,6 +6,7 @@ import { ActiveProgramsSection } from "@/components/active-programs-section";
 import { ParentChildrenOverview } from "@/components/parent-children-overview";
 import { ParentProgramRegistration } from "@/components/parent-program-registration";
 import { useAuth } from "@/components/auth-provider";
+import { useOrgHref } from "@/components/org-provider";
 import { StatTile } from "@/components/stat-tile";
 import {
   Table,
@@ -35,6 +36,7 @@ export default function PlayerDashboardPage() {
   const router = useRouter();
   const { user, canViewPlayerDashboard } = useAuth();
   const { state } = useRegistration();
+  const orgHref = useOrgHref();
 
   const children = useMemo(
     () => (user ? getChildrenForParent(state.players, user.id) : []),
@@ -49,9 +51,9 @@ export default function PlayerDashboardPage() {
       return;
     }
     if (!canViewPlayerDashboard) {
-      router.replace(user.role === "admin" ? "/dashboard" : "/");
+      router.replace(user.role === "admin" ? orgHref("/admin") : "/");
     }
-  }, [user, canViewPlayerDashboard, router]);
+  }, [user, canViewPlayerDashboard, router, orgHref]);
 
   useEffect(() => {
     if (children.length === 0) {

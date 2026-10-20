@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { useOrgHref } from "@/components/org-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 export function AdminScheduleAvailability() {
   const { canEdit } = useAuth();
+  const orgHref = useOrgHref();
   const {
     state,
     setProgramRegistrationOpen,
@@ -50,7 +52,7 @@ export function AdminScheduleAvailability() {
         </div>
         {canEdit ? (
           <Link
-            href="/dashboard/programs/new"
+            href={orgHref("/admin/programs/new")}
             className={cn(buttonVariants())}
             data-testid="add-program-link"
           >
@@ -99,7 +101,7 @@ export function AdminScheduleAvailability() {
               {canEdit ? (
                 <div className="flex flex-wrap gap-2">
                   <Link
-                    href={`/dashboard/programs/${program.id}`}
+                    href={orgHref(`/admin/programs/${program.id}`)}
                     className={cn(
                       buttonVariants({ variant: "outline", size: "sm" }),
                     )}

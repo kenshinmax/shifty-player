@@ -1,3 +1,5 @@
+import { DEFAULT_ORG_SLUG } from "@/lib/organizations";
+
 export type UserRole = "user" | "admin";
 
 export type AuthUser = {
@@ -71,8 +73,8 @@ export function canViewPlayerDashboard(user: AuthUser | null): boolean {
 
 /** Default landing path after a successful sign-in. */
 export function getPostLoginPath(user: AuthUser): string {
-  if (user.role === "admin") return "/dashboard";
-  return "/player";
+  if (user.role === "admin") return `/o/${DEFAULT_ORG_SLUG}/admin`;
+  return "/account";
 }
 
 /** Safe relative redirect target after login (defaults to post-login path). */

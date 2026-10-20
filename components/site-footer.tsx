@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
-import { MAIN_NAV_LINKS } from "@/lib/nav";
+import { useNavLinks } from "@/components/site-header";
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
+  const navLinks = useNavLinks();
 
   return (
     <footer className="mt-auto border-t bg-muted/30">
@@ -25,7 +28,7 @@ export function SiteFooter() {
             Explore
           </p>
           <nav aria-label="Footer" className="flex flex-col gap-2">
-            {MAIN_NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}

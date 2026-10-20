@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
+import { useOptionalOrg } from "@/components/org-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -21,7 +22,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MAIN_NAV_LINKS } from "@/lib/nav";
+import { getPostLoginPath } from "@/lib/auth";
+import { orgNavLinks, PLATFORM_NAV_LINKS, type NavLink } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 function initials(name: string) {
@@ -33,11 +35,36 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+/**
+ * The org slug for the current page, or null on platform pages. The header and
+ * footer render in AppShell, above the org layout's OrgProvider, so the route
+ * params are the fallback there.
+ */
+function useNavOrgSlug(): string | null {
+  const org = useOptionalOrg();
+  const params = useParams<{ slug?: string }>();
+  return org?.slug ?? params.slug ?? null;
+}
+
+/** Org nav inside `/o/[slug]`, platform nav everywhere else. */
+export function useNavLinks(): readonly NavLink[] {
+  const slug = useNavOrgSlug();
+  return slug ? orgNavLinks(slug) : PLATFORM_NAV_LINKS;
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, canViewDashboard, canViewPlayerDashboard } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
+  const orgSlug = useNavOrgSlug();
+  const navLinks = useNavLinks();
+  const homeHref = navLinks[0].href;
+  const adminHref = orgSlug
+    ? `/o/${orgSlug}/admin`
+    : user
+      ? getPostLoginPath(user)
+      : null;
 
   return (
     <>
@@ -51,10 +78,10 @@ export function SiteHeader() {
           </Link>
 
           <nav aria-label="Main" className="flex flex-1 items-center gap-1 overflow-x-auto">
-            {MAIN_NAV_LINKS.map((link) => {
+            {navLinks.map((link) => {
               const active =
-                link.href === "/"
-                  ? pathname === "/"
+                link.href === homeHref
+                  ? pathname === homeHref
                   : pathname === link.href ||
                     pathname.startsWith(`${link.href}/`);
               return (
@@ -72,12 +99,12 @@ export function SiteHeader() {
                 </Link>
               );
             })}
-            {canViewDashboard ? (
+            {canViewDashboard && adminHref ? (
               <Link
-                href="/dashboard"
+                href={adminHref}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted",
-                  pathname.startsWith("/dashboard")
+                  pathname.startsWith(adminHref)
                     ? "bg-muted font-medium text-foreground"
                     : "text-muted-foreground",
                 )}
@@ -88,10 +115,10 @@ export function SiteHeader() {
             ) : null}
             {canViewPlayerDashboard ? (
               <Link
-                href="/player"
+                href="/account"
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted",
-                  pathname.startsWith("/player")
+                  pathname.startsWith("/account")
                     ? "bg-muted font-medium text-foreground"
                     : "text-muted-foreground",
                 )}
@@ -135,14 +162,16 @@ export function SiteHeader() {
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   {canViewPlayerDashboard ? (
-                    <DropdownMenuItem onClick={() => router.push("/player")}>
+                    <DropdownMenuItem
+                      onClick={() => router.push(getPostLoginPath(user))}
+                    >
                       <LayoutDashboard />
                       My Dashboard
                     </DropdownMenuItem>
                   ) : null}
                   {canViewDashboard ? (
                     <DropdownMenuItem
-                      onClick={() => router.push("/dashboard")}
+                      onClick={() => router.push(getPostLoginPath(user))}
                     >
                       <LayoutDashboard />
                       Admin Dashboard

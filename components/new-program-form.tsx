@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
+import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import { DEFAULT_CLINIC_CAPACITY } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 export function NewProgramForm() {
   const router = useRouter();
   const { user, canViewDashboard } = useAuth();
+  const orgHref = useOrgHref();
   const { createProgram } = useRegistration();
 
   const [name, setName] = useState("");
@@ -40,9 +42,9 @@ export function NewProgramForm() {
 
   useEffect(() => {
     if (!canViewDashboard) {
-      router.replace(user?.role === "user" ? "/player" : "/");
+      router.replace(user?.role === "user" ? "/account" : orgHref("/"));
     }
-  }, [canViewDashboard, router, user?.role]);
+  }, [canViewDashboard, router, user?.role, orgHref]);
 
   if (!canViewDashboard) {
     return <p className="text-muted-foreground">Redirecting…</p>;
@@ -66,14 +68,14 @@ export function NewProgramForm() {
       return;
     }
 
-    router.push(`/dashboard/programs/${result.programId}`);
+    router.push(orgHref(`/admin/programs/${result.programId}`));
   };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6" data-testid="new-program-page">
       <header className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          <Link href="/dashboard" className="underline-offset-4 hover:underline">
+          <Link href={orgHref("/admin")} className="underline-offset-4 hover:underline">
             Admin Dashboard
           </Link>
           {" / "}
@@ -192,7 +194,7 @@ export function NewProgramForm() {
                 Create program
               </Button>
               <Link
-                href="/dashboard"
+                href={orgHref("/admin")}
                 className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
               >
                 Cancel

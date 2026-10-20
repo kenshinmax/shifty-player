@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, Layers, Sparkles, Target } from "lucide-react";
+import { useOrgHref } from "@/components/org-provider";
 import { SummerScheduleCalendars } from "@/components/summer-schedule-calendars";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,6 +47,7 @@ const JOURNEY_STEPS = [
 ] as const;
 
 export function ShowcasesContent() {
+  const orgHref = useOrgHref();
   return (
     <div className="-mx-6 -mt-10 space-y-0 pb-8">
       <section
@@ -137,7 +141,7 @@ export function ShowcasesContent() {
               Start with clinics, then grow through each stage.
             </p>
             <Link
-              href="/clinics"
+              href={orgHref("/clinics")}
               className={cn(
                 buttonVariants({ size: "lg" }),
                 "bg-white text-black hover:bg-white/90",

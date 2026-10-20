@@ -24,6 +24,11 @@ export function useOrg(): OrgSummary {
   return org;
 }
 
+/** The current org, or null on platform pages outside `/o/[slug]`. */
+export function useOptionalOrg(): OrgSummary | null {
+  return useContext(OrgContext);
+}
+
 export function useOrgHref(): (path: string) => string {
   const { slug } = useOrg();
   return useCallback(

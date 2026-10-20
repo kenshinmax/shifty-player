@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
+import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import {
   formatClinicLabel,
@@ -43,6 +44,7 @@ export function ParentProgramRegistration({
 }: ParentProgramRegistrationProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const orgHref = useOrgHref();
   const { state, addChild, validateRegistration } = useRegistration();
 
   const children = useMemo(
@@ -98,7 +100,7 @@ export function ParentProgramRegistration({
 
     onRegistered?.();
     emitMetricsEvent("registration_started");
-    router.push(`/player/registration/${childId}/${clinicId}`);
+    router.push(orgHref(`/register/${childId}/${clinicId}`));
   };
 
   const handleAddChild = async (event: React.FormEvent) => {

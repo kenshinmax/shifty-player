@@ -7,17 +7,15 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CalendarDays,
-  Eye,
   LogIn,
   MessagesSquare,
-  Swords,
   Trophy,
   UserPlus,
   Users,
-  Zap,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
+import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import { Badge } from "@/components/ui/badge";
 import { Layers, Sparkles, Target } from "lucide-react";
@@ -28,38 +26,6 @@ import { sortSessionsByRecent } from "@/lib/session-showcase";
 import { SummerScheduleCalendars } from "./summer-schedule-calendars";
 import { cn } from "@/lib/utils";
 
-const JOURNEY_STAGES = [
-  {
-    stage: "01",
-    label: "Learning",
-    title: "Foundations",
-    description:
-      "First touches, fundamentals, and a love for the game in a focused, supportive setting.",
-    detail: "Grades K–5 · Skills & confidence",
-    icon: Zap,
-    href: "/clinics",
-  },
-  {
-    stage: "02",
-    label: "Competing",
-    title: "Travel & teams",
-    description:
-      "Structured practices, scrimmages, and tournament basketball with real team identity.",
-    detail: "Grades 3–12 · Programs & showcases",
-    icon: Swords,
-    href: "/programs",
-  },
-  {
-    stage: "03",
-    label: "Pursuing",
-    title: "Visibility",
-    description:
-      "High-level clinics and showcase moments where hustle and IQ get noticed.",
-    detail: "Middle & high school · Exposure",
-    icon: Eye,
-    href: "/showcases",
-  },
-] as const;
 const JOURNEY_STEPS = [
   {
     step: "01",
@@ -128,6 +94,7 @@ export function HomeContent() {
   const router = useRouter();
   const { user, canAddPlayer } = useAuth();
   const { state } = useRegistration();
+  const orgHref = useOrgHref();
   const [loginOpen, setLoginOpen] = useState(false);
 
   const latestProgram = useMemo(
@@ -211,7 +178,7 @@ export function HomeContent() {
                 )}
               </Button>
               <Link
-                href="/clinics"
+                href={orgHref("/clinics")}
                 className={cn(
                   buttonVariants({ variant: "outline", size: "lg" }),
                   "border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white",
@@ -330,7 +297,7 @@ export function HomeContent() {
               Start with clinics, then grow through each stage.
             </p>
             <Link
-              href="/programs"
+              href={orgHref("/programs")}
               className={cn(
                 buttonVariants({ size: "lg" }),
                 "bg-white text-black hover:bg-white/90",

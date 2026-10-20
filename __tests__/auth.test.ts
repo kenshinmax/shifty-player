@@ -85,15 +85,15 @@ describe("auth", () => {
   it("routes players and admins to the correct post-login path", async () => {
     const user = (await authenticateUser("user@demo.com", "user"))!;
     const admin = (await authenticateUser("admin@demo.com", "admin"))!;
-    expect(getPostLoginPath(user)).toBe("/player");
-    expect(getPostLoginPath(admin)).toBe("/dashboard");
+    expect(getPostLoginPath(user)).toBe("/account");
+    expect(getPostLoginPath(admin)).toBe("/o/shifty-player/admin");
   });
 
   it("resolves safe login redirects", async () => {
     const user = (await authenticateUser("user@demo.com", "user"))!;
-    expect(resolveLoginRedirect(user, "/player")).toBe("/player");
-    expect(resolveLoginRedirect(user, "//evil.com")).toBe("/player");
-    expect(resolveLoginRedirect(user, null)).toBe("/player");
+    expect(resolveLoginRedirect(user, "/account")).toBe("/account");
+    expect(resolveLoginRedirect(user, "//evil.com")).toBe("/account");
+    expect(resolveLoginRedirect(user, null)).toBe("/account");
   });
 
   it("registers a new parent account and signs them in via authenticate", async () => {

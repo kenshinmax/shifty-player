@@ -7,6 +7,7 @@ import { Pencil, Plus, UserPlus } from "lucide-react";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { PlayersRosterGrid } from "@/components/players-roster-grid";
 import { useAuth } from "@/components/auth-provider";
+import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export function ProgramDetailPage() {
   const programId = params.programId;
   const router = useRouter();
   const { user, canViewDashboard, canEdit } = useAuth();
+  const orgHref = useOrgHref();
   const {
     state,
     createPlayer,
@@ -95,9 +97,9 @@ export function ProgramDetailPage() {
 
   useEffect(() => {
     if (!canViewDashboard) {
-      router.replace(user?.role === "user" ? "/player" : "/");
+      router.replace(user?.role === "user" ? "/account" : orgHref("/"));
     }
-  }, [canViewDashboard, router, user?.role]);
+  }, [canViewDashboard, router, user?.role, orgHref]);
 
   if (!canViewDashboard) {
     return <p className="text-muted-foreground">Redirecting…</p>;
@@ -107,7 +109,7 @@ export function ProgramDetailPage() {
     return (
       <div className="space-y-4 p-6" data-testid="program-detail-missing">
         <p className="text-muted-foreground">Program not found.</p>
-        <Link href="/dashboard" className={cn(buttonVariants())}>
+        <Link href={orgHref("/admin")} className={cn(buttonVariants())}>
           Back to dashboard
         </Link>
       </div>
@@ -140,7 +142,7 @@ export function ProgramDetailPage() {
     <div className="mx-auto max-w-6xl space-y-8 p-6" data-testid="program-detail">
       <header className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          <Link href="/dashboard" className="underline-offset-4 hover:underline">
+          <Link href={orgHref("/admin")} className="underline-offset-4 hover:underline">
             Admin Dashboard
           </Link>
           {" / "}
@@ -193,7 +195,7 @@ export function ProgramDetailPage() {
               </Button>
             ) : null}
             <Link
-              href="/dashboard"
+              href={orgHref("/admin")}
               className={cn(buttonVariants({ variant: "outline" }))}
             >
               Back
