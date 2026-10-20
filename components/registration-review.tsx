@@ -845,7 +845,7 @@ export function RegistrationReview() {
               <div>
                 <dt className="text-muted-foreground">Spots</dt>
                 <dd className="font-medium">
-                  {getRemainingClinicSpots(state.players, clinic)} of{" "}
+                  {getRemainingClinicSpots(state, clinic)} of{" "}
                   {getClinicCapacity(clinic)} available
                 </dd>
               </div>

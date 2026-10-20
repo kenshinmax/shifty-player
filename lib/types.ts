@@ -85,6 +85,8 @@ export type AppState = {
   programs: Program[];
   sessions: Session[];
   players: Player[];
+  /** Enrolled-player count per clinic id, computed server-side from the full roster. */
+  seatCounts?: Record<string, number>;
 };
 
 export const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];

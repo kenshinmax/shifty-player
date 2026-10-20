@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { sampleData } from "@/lib/sample-data";
 import { sessionKey } from "@/lib/format";
+import { seatsTaken } from "@/lib/programs";
 import {
-  countPlayersForSession,
   validateClinicRegistration,
   type ChildInput,
   type PlayerInput,
@@ -251,7 +251,7 @@ export function usePlayerStore(initialState: AppState = sampleData) {
     setProgramRegistrationOpen,
     setClinicRegistrationAvailable,
     countPlayersForSession: (sessionId: string) =>
-      countPlayersForSession(state.players, sessionId),
+      seatsTaken(state, sessionId),
     getSessionLabel: (session: Session) =>
       session.label ?? sessionKey(session.year, session.month),
   };

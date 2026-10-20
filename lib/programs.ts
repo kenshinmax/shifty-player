@@ -1,6 +1,7 @@
 import { formatMonth } from "./format";
 import {
   DEFAULT_CLINIC_CAPACITY,
+  type AppState,
   type Player,
   type Program,
   type Session,
@@ -27,15 +28,33 @@ export function getClinicCapacity(clinic: Session): number {
   return clinic.capacity > 0 ? clinic.capacity : DEFAULT_CLINIC_CAPACITY;
 }
 
+/** Seats taken in a clinic: server-provided counts win over the players list. */
+export function seatsTaken(
+  state: Pick<AppState, "players" | "seatCounts">,
+  sessionId: string,
+): number {
+  if (state.seatCounts) return state.seatCounts[sessionId] ?? 0;
+  return state.players.filter((player) => player.sessionIds.includes(sessionId))
+    .length;
+}
+
+/** Enrolled-player count per clinic id; each player counts once per clinic. */
+export function buildSeatCounts(players: Player[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const player of players) {
+    for (const id of new Set(player.sessionIds)) {
+      counts[id] = (counts[id] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
 /** How many player spots remain in a clinic. */
 export function getRemainingClinicSpots(
-  players: Player[],
+  state: Pick<AppState, "players" | "seatCounts">,
   clinic: Session,
 ): number {
-  const enrolled = players.filter((player) =>
-    player.sessionIds.includes(clinic.id),
-  ).length;
-  return Math.max(0, getClinicCapacity(clinic) - enrolled);
+  return Math.max(0, getClinicCapacity(clinic) - seatsTaken(state, clinic.id));
 }
 
 /** Registration status for a child's active program row. */
@@ -85,13 +104,12 @@ export function getClinicsForProgram(
  * available by an administrator, and have remaining player spots.
  */
 export function getAvailableClinicsForProgram(
-  sessions: Session[],
+  state: Pick<AppState, "sessions" | "players" | "seatCounts">,
   programId: string,
-  players: Player[] = [],
 ): Session[] {
-  return getClinicsForProgram(sessions, programId).filter(
+  return getClinicsForProgram(state.sessions, programId).filter(
     (session) =>
-      session.available && getRemainingClinicSpots(players, session) > 0,
+      session.available && getRemainingClinicSpots(state, session) > 0,
   );
 }
 

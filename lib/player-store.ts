@@ -71,7 +71,7 @@ export function validateClinicRegistration(
   if (player.sessionIds.includes(clinicId)) {
     return "This child is already registered for that clinic.";
   }
-  if (getRemainingClinicSpots(state.players, clinic) <= 0) {
+  if (getRemainingClinicSpots(state, clinic) <= 0) {
     return "This clinic has no available spots.";
   }
 

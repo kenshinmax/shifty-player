@@ -69,7 +69,7 @@ export function ParentProgramRegistration({
     (program) => program.id === programId,
   );
   const availableClinics = programId
-    ? getAvailableClinicsForProgram(state.sessions, programId, state.players)
+    ? getAvailableClinicsForProgram(state, programId)
     : [];
 
   const handleRegister = (event: React.FormEvent) => {
@@ -265,7 +265,7 @@ export function ParentProgramRegistration({
                       {formatClinicLabel(clinic)} ·{" "}
                       {formatMonth(clinic.month)} {clinic.year} · $
                       {getClinicPriceUsd(clinic)} ·{" "}
-                      {getRemainingClinicSpots(state.players, clinic)} spots
+                      {getRemainingClinicSpots(state, clinic)} spots
                       left
                     </SelectItem>
                   ))}
