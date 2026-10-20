@@ -1,17 +1,18 @@
-import { HomeContent } from "@/components/home-content";
-import { OrgProvider } from "@/components/org-provider";
-import { RegistrationProvider } from "@/components/registration-provider";
-import { DEFAULT_ORG_ID, DEFAULT_ORG_SLUG } from "@/lib/organizations";
+import { PlatformHome } from "@/components/platform-home";
+import { listLiveOrganizations } from "@/lib/db/platform-repository";
 
-// Temporary: shows the default org's home until Task 8 replaces this page.
-export default function HomePage() {
+// Reads the database, so never prerender at build time.
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const organizations = await listLiveOrganizations();
   return (
-    <OrgProvider
-      org={{ id: DEFAULT_ORG_ID, slug: DEFAULT_ORG_SLUG, name: "Shifty Player" }}
-    >
-      <RegistrationProvider orgId={DEFAULT_ORG_ID}>
-        <HomeContent />
-      </RegistrationProvider>
-    </OrgProvider>
+    <PlatformHome
+      organizations={organizations.map(({ id, slug, name }) => ({
+        id,
+        slug,
+        name,
+      }))}
+    />
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,13 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useRegistration } from "@/components/registration-provider";
 import { getClinicsForProgram, formatClinicLabel } from "@/lib/programs";
-import { getChildrenForParent } from "@/lib/player-store";
 import type { Player, Program, Session } from "@/lib/types";
 
 type ParentChildrenOverviewProps = {
-  parentUserId: string;
+  childrenPlayers: Player[];
+  programs: Program[];
+  sessions: Session[];
 };
 
 function initials(name: string): string {
@@ -47,15 +46,10 @@ function clinicRegistrationsForChild(
 }
 
 export function ParentChildrenOverview({
-  parentUserId,
+  childrenPlayers: children,
+  programs,
+  sessions,
 }: ParentChildrenOverviewProps) {
-  const { state } = useRegistration();
-
-  const children = useMemo(
-    () => getChildrenForParent(state.players, parentUserId),
-    [state.players, parentUserId],
-  );
-
   if (children.length === 0) return null;
 
   return (
@@ -71,8 +65,8 @@ export function ParentChildrenOverview({
         {children.map((child) => {
           const registrations = clinicRegistrationsForChild(
             child,
-            state.programs,
-            state.sessions,
+            programs,
+            sessions,
           );
 
           return (
