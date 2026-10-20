@@ -12,6 +12,10 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Organization URLs
+
+`/` lists the organizations. Each organization lives under `/o/<slug>` (the sample one is `/o/shifty-player`), with `/programs`, `/clinics`, `/showcases`, `/register` and `/admin` beneath it. Parents manage their family across organizations at `/account`. Old URLs such as `/programs`, `/dashboard` and `/player` redirect to their new homes.
+
 ![Shifty player registration](images/shifty-programs.png)
 
 ## Tests

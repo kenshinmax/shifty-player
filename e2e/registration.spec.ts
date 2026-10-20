@@ -41,7 +41,7 @@ async function clearClientState(page: Page) {
 
 test("admin dashboard players and payment links", async ({ page }) => {
   await clearClientState(page);
-  await page.goto("/programs");
+  await page.goto("/o/shifty-player/programs");
 
   await expect(page.getByRole("heading", { name: "Programs" })).toBeVisible();
   await expect(page.getByTestId("session-megatron")).toContainText("Week 1");
@@ -71,7 +71,7 @@ test("admin dashboard players and payment links", async ({ page }) => {
     page.getByTestId("summer-2027-card-summer-camp").getByRole("link", {
       name: "Register Now",
     }),
-  ).toHaveAttribute("href", "/login?next=/player");
+  ).toHaveAttribute("href", "/login?next=/account");
   await expect(page.getByTestId("summer-2027-card-showcases")).toContainText(
     "Showcases",
   );
@@ -87,7 +87,7 @@ test("admin dashboard players and payment links", async ({ page }) => {
 
   await signInAsAdmin(page);
 
-  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page).toHaveURL(/\/o\/shifty-player\/admin$/);
   await expect(page.getByTestId("registration-greeting")).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add Session" })).toHaveCount(0);
@@ -161,9 +161,10 @@ test("admin dashboard players and payment links", async ({ page }) => {
   await page.getByTestId("dashboard-nav-rosters").click();
   await expect(page.getByRole("button", { name: "Add Player" })).toBeVisible();
   await expect(page.getByTestId("players-roster-grid")).toBeVisible();
+  // Maya Rivera has no enrollment with the org yet, so admins can't see her.
   await expect(
     playersSection(page).getByRole("button", { name: /Actions for/ }),
-  ).toHaveCount(12);
+  ).toHaveCount(11);
 
   await page.getByTestId("dashboard-nav-programs").click();
   await expect(page.getByTestId("dashboard-programs")).toContainText("Winter");
@@ -172,15 +173,15 @@ test("admin dashboard players and payment links", async ({ page }) => {
   );
   await expect(page.getByTestId("add-program-link")).toBeVisible();
   await page.getByTestId("manage-program-program-winter-2026").click();
-  await expect(page).toHaveURL(/\/dashboard\/programs\/program-winter-2026$/);
+  await expect(page).toHaveURL(/\/o\/shifty-player\/admin\/programs\/program-winter-2026$/);
   await expect(page.getByTestId("program-detail")).toContainText("Winter 2026");
   await expect(page.getByTestId("program-roster")).toBeVisible();
   await page.getByRole("link", { name: "Back" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page).toHaveURL(/\/o\/shifty-player\/admin$/);
 
   await page.getByTestId("dashboard-nav-programs").click();
   await page.getByTestId("add-program-link").click();
-  await expect(page).toHaveURL(/\/dashboard\/programs\/new$/);
+  await expect(page).toHaveURL(/\/o\/shifty-player\/admin\/programs\/new$/);
   await page.locator("#program-name").fill("Spring Camp");
   await page.locator("#program-description").fill("Admin-created spring program.");
   await page.locator("#program-start-date").fill("2027-04-01");
@@ -238,14 +239,14 @@ test("register now opens login page with signup for guests", async ({
   page,
 }) => {
   await clearClientState(page);
-  await page.goto("/programs");
+  await page.goto("/o/shifty-player/programs");
 
   await page
     .getByTestId("summer-2027-card-summer-camp")
     .getByRole("link", { name: "Register Now" })
     .click();
 
-  await expect(page).toHaveURL(/\/login\?next=\/player/);
+  await expect(page).toHaveURL(/\/login\?next=\/account/);
   await expect(page.getByTestId("login-page")).toBeVisible();
   await expect(page.getByTestId("login-form-card")).toBeVisible();
   await expect(page.getByTestId("signup-form-card")).toBeVisible();
@@ -253,7 +254,7 @@ test("register now opens login page with signup for guests", async ({
   await page.getByTestId("login-form-card").getByRole("button", { name: "Use user" }).click();
   await page.getByTestId("login-form-card").getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL(/\/player$/);
+  await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 });
 
@@ -261,14 +262,14 @@ test("quick signup on login page creates a parent account", async ({
   page,
 }) => {
   await clearClientState(page);
-  await page.goto("/login?next=/player");
+  await page.goto("/login?next=/account");
 
   await page.locator("#signup-name").fill("Casey Parent");
   await page.locator("#signup-email").fill("casey.parent@example.com");
   await page.locator("#signup-password").fill("casey");
   await page.getByRole("button", { name: "Create account" }).click();
 
-  await expect(page).toHaveURL(/\/player$/);
+  await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("button", { name: "Account menu" })).toContainText(
     "Casey Parent",
   );
@@ -276,7 +277,7 @@ test("quick signup on login page creates a parent account", async ({
 
 test("home register creates an account and lands on the dashboard", async ({ page }) => {
   await clearClientState(page);
-  await page.goto("/");
+  await page.goto("/o/shifty-player");
 
   await page.getByRole("button", { name: "Sign in to register" }).click();
   const dialog = page.getByRole("dialog");
@@ -288,7 +289,7 @@ test("home register creates an account and lands on the dashboard", async ({ pag
   await page.locator("#dialog-signup-password").fill("riley");
   await dialog.getByRole("button", { name: "Create account" }).click();
 
-  await expect(page).toHaveURL(/\/player$/);
+  await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("dialog", { name: "Add Player" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Account menu" })).toContainText(
     "Riley Newparent",
@@ -299,12 +300,11 @@ test("parent login lands on dashboard with program registration", async ({
   page,
 }) => {
   await clearClientState(page);
-  await page.goto("/programs");
+  await page.goto("/o/shifty-player/programs");
   await signInAsPlayer(page);
 
-  await expect(page).toHaveURL(/\/player$/);
+  await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.getByTestId("parent-program-registration")).toBeVisible();
   await expect(page.getByTestId("parent-children-overview")).toContainText(
     "Maya Rivera",
   );
@@ -312,6 +312,13 @@ test("parent login lands on dashboard with program registration", async ({
     "Lucas Rivera",
   );
   await expect(page.getByRole("link", { name: "My Dashboard" })).toBeVisible();
+
+  await page
+    .getByTestId("account-org-shifty-player")
+    .getByRole("link", { name: "Register for programs" })
+    .click();
+  await expect(page).toHaveURL(/\/o\/shifty-player\/register$/);
+  await expect(page.getByTestId("parent-program-registration")).toBeVisible();
 
   await page.locator("#register-child").click();
   await page.getByRole("option", { name: /Maya Rivera/ }).click();
@@ -325,7 +332,7 @@ test("parent login lands on dashboard with program registration", async ({
   await page.getByRole("button", { name: "Continue to payment" }).click();
 
   await expect(page).toHaveURL(
-    /\/player\/registration\/player-child-1\/clinic-summer-2026-w1$/,
+    /\/o\/shifty-player\/register\/player-child-1\/clinic-summer-2026-w1$/,
   );
   await expect(page.getByTestId("registration-review")).toBeVisible();
   await expect(page.getByTestId("registration-player-card")).toContainText(
@@ -345,11 +352,12 @@ test("parent login lands on dashboard with program registration", async ({
   );
 
   await page.getByRole("link", { name: "Cancel" }).click();
-  await expect(page).toHaveURL(/\/player$/);
+  await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByTestId("parent-children-overview")).not.toContainText(
     "Week 1",
   );
 
+  await page.goto("/o/shifty-player/register");
   await page.locator("#register-child").click();
   await page.getByRole("option", { name: /Maya Rivera/ }).click();
   await page.locator("#register-program").click();
@@ -374,7 +382,7 @@ test("parent login lands on dashboard with program registration", async ({
   await page.locator("#billing-zip").fill("06883");
   await page.getByRole("button", { name: /Pay \$485/ }).click();
 
-  await expect(page).toHaveURL(/\/player$/);
+  await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByTestId("parent-children-overview")).toContainText(
     "Summer Camp 2026",
   );
