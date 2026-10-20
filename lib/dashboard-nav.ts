@@ -1,4 +1,5 @@
 import {
+  Building2,
   CalendarDays,
   ClipboardList,
   MessageSquare,
@@ -12,7 +13,8 @@ export type DashboardSection =
   | "financials"
   | "programs"
   | "communications"
-  | "rosters";
+  | "rosters"
+  | "organizations";
 
 export type DashboardNavItem = {
   id: DashboardSection;
@@ -51,5 +53,11 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
     label: "Rosters",
     description: "Registered players and roster management.",
     icon: Users,
+  },
+  {
+    id: "organizations",
+    label: "Organizations",
+    description: "Create organizations and publish drafts.",
+    icon: Building2,
   },
 ];

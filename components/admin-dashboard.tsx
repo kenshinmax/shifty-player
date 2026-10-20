@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, UserPlus, X } from "lucide-react";
+import { AdminOrganizations } from "@/components/admin-organizations";
 import { AdminScheduleAvailability } from "@/components/admin-schedule-availability";
 import { useAuth } from "@/components/auth-provider";
 import { useOrgHref } from "@/components/org-provider";
 import { FinancialsPlayersTable } from "@/components/financials-players-table";
+import { OrgSwitcher } from "@/components/org-switcher";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { PlayersRosterGrid } from "@/components/players-roster-grid";
 import { RegistrationInsights } from "@/components/registration-insights";
@@ -19,6 +21,7 @@ import {
 } from "@/lib/dashboard-nav";
 import { formatMonth } from "@/lib/format";
 import { getLatestSession } from "@/lib/session-showcase";
+import { useOrganizations } from "@/lib/use-organizations";
 import { type Player } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +93,12 @@ export function AdminDashboard() {
     sendPaymentLink,
   } = useRegistration();
 
+  const {
+    organizations,
+    error: organizationsError,
+    reload: reloadOrganizations,
+  } = useOrganizations();
+
   const [activeSection, setActiveSection] =
     useState<DashboardSection>("registration");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -159,6 +168,7 @@ export function AdminDashboard() {
             Welcome, {user.name}. Track registration, financials, schedules,
             messaging, and rosters.
           </p>
+          <OrgSwitcher organizations={organizations} />
         </div>
         <Button
           type="button"
@@ -337,6 +347,14 @@ export function AdminDashboard() {
                 onSendPaymentLink={sendPaymentLink}
               />
             </section>
+          ) : null}
+
+          {activeSection === "organizations" ? (
+            <AdminOrganizations
+              organizations={organizations}
+              loadError={organizationsError}
+              onChanged={reloadOrganizations}
+            />
           ) : null}
 
           {activeSection === "programs" ? (
