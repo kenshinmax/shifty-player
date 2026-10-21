@@ -1,11 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import {
+  Building2,
   CalendarDays,
   MessagesSquare,
+  Shirt,
+  Tent,
   Trophy,
+  UserRound,
   Users,
 } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const PLATFORM_FEATURES = [
   {
@@ -34,18 +41,48 @@ const PLATFORM_FEATURES = [
   },
 ] as const;
 
+const MANAGED_AREAS = [
+  { label: "Teams", icon: Shirt },
+  { label: "Camps", icon: Tent },
+  { label: "Players", icon: UserRound },
+  { label: "Organization", icon: Building2 },
+] as const;
+
 export function PlatformHome() {
   return (
     <div className="space-y-12" data-testid="platform-home">
-      <header className="space-y-3 text-center">
-        <h1 className="font-heading text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Shifty Player Platform
-        </h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Run registrations, rosters and payments for your basketball
-          organization.
-        </p>
-      </header>
+      <section
+        data-testid="platform-hero"
+        className="relative left-1/2 -mt-10 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden bg-ink text-ink-foreground"
+      >
+        <div
+          className="pointer-events-none absolute inset-0 bg-linear-to-br from-brand/20 via-transparent to-transparent"
+          aria-hidden
+        />
+        <div className="relative mx-auto max-w-6xl space-y-6 px-6 py-20 text-center sm:py-28">
+          <p className="font-heading text-sm font-semibold tracking-[0.22em] text-ink-foreground/70 uppercase">
+            For basketball organizations
+          </p>
+          <h1 className="font-heading text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
+            Shifty Player Platform
+          </h1>
+          <p className="mx-auto max-w-2xl text-base text-ink-foreground/70 sm:text-lg">
+            Run registrations, rosters and payments for your basketball
+            organization.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 pt-2">
+            <Link
+              href="/login"
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "bg-ink-foreground text-ink hover:bg-ink-foreground/90",
+              )}
+            >
+              Get started
+            </Link>
+          </div>
+        </div>
+      </section>
 
       <section
         data-testid="home-platform"
@@ -73,6 +110,48 @@ export function PlatformHome() {
             );
           })}
         </ul>
+      </section>
+
+      <section
+        data-testid="platform-split-panel"
+        className="grid overflow-hidden rounded-3xl border bg-background shadow-sm md:grid-cols-2"
+      >
+        <div className="flex flex-col justify-center space-y-4 p-8 sm:p-12">
+          <div className="border-l-4 border-brand pl-4">
+            <h2 className="font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Seamless team program management
+            </h2>
+          </div>
+          <p className="max-w-md text-base text-muted-foreground sm:text-lg">
+            Manage your teams, camps, players and organization with a single
+            platform
+          </p>
+        </div>
+
+        <div className="relative bg-ink p-8 text-ink-foreground sm:p-12">
+          <div
+            className="pointer-events-none absolute inset-0 bg-linear-to-br from-brand/20 via-transparent to-transparent"
+            aria-hidden
+          />
+          <ul className="relative grid grid-cols-2 gap-4">
+            {MANAGED_AREAS.map((area) => {
+              const Icon = area.icon;
+              return (
+                <li
+                  key={area.label}
+                  className="flex flex-col items-start gap-3 rounded-xl border border-ink-foreground/10 bg-ink-foreground/5 p-5"
+                >
+                  <span className="inline-flex size-10 items-center justify-center rounded-full border border-ink-foreground/15 bg-ink-foreground/5">
+                    <Icon className="size-4" aria-hidden />
+                  </span>
+                  <span className="font-heading text-lg font-medium">
+                    {area.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </section>
     </div>
   );

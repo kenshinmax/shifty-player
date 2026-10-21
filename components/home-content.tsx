@@ -4,13 +4,18 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, LogIn, UserPlus } from "lucide-react";
+import {
+  ArrowRight,
+  Layers,
+  LogIn,
+  Sparkles,
+  Target,
+  UserPlus,
+} from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
 import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
-import { Badge } from "@/components/ui/badge";
-import { Layers, Sparkles, Target } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { formatMonth } from "@/lib/format";
 import { sortSessionsByRecent } from "@/lib/session-showcase";
@@ -55,6 +60,7 @@ const JOURNEY_STEPS = [
     titleClass: "text-3xl sm:text-4xl lg:text-5xl",
   },
 ] as const;
+
 export function HomeContent() {
   const router = useRouter();
   const { user, canAddPlayer } = useAuth();
@@ -169,8 +175,6 @@ export function HomeContent() {
       </section>
 
       {/* Section 2 — Program journey stages (CT Elite–style) */}
-      
-      <div className="-mx-6 -mt-10 space-y-0 pb-8">
       <section
         data-testid="showcases-journey"
         className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden bg-zinc-950 text-white"
@@ -276,7 +280,6 @@ export function HomeContent() {
       </section>
 
       <SummerScheduleCalendars />
-    </div>
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
     </div>
   );
