@@ -2,8 +2,9 @@ import { after, NextResponse } from "next/server";
 import {
   requireEnrollableChild,
   requireOrg,
-  resolveViewer,
+  resolveUser,
   signInRequired,
+  viewerFor,
 } from "@/lib/api-viewer";
 import { syncEnrollmentToHubSpot } from "@/lib/hubspot-sync";
 import { buildMerchandiseOrder } from "@/lib/merchandise";
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { user, viewer } = await resolveViewer(request);
+  const user = await resolveUser(request);
   if (!user) return signInRequired();
 
   let body: ConfirmEnrollmentBody;
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
 
   const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
+  const viewer = viewerFor(user, orgId);
 
   try {
     const access = await requireEnrollableChild(user, orgId, playerId);

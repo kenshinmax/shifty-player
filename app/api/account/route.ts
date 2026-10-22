@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveViewer } from "@/lib/api-viewer";
+import { resolveUser } from "@/lib/api-viewer";
 import { childrenForParent, organizationsForParent } from "@/lib/db/family-repository";
 import { getStateForViewer } from "@/lib/db/registration-repository";
 
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { user } = await resolveViewer(request);
+  const user = await resolveUser(request);
   if (!user) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }

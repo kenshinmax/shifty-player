@@ -1,36 +1,24 @@
 import { StatTile } from "@/components/stat-tile";
+import {
+  buildClinicEnrollment,
+  buildPlayerTrend,
+  sumPaidRevenue,
+  type ClinicEnrollmentBar,
+  type PlayerTrendPoint,
+} from "@/lib/insights";
+import { isPlayerPaid } from "@/lib/payment";
+import type { AppState } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const REGISTRATION_FEE = 175;
-
-const SIX_MONTH_PLAYER_TREND = [
-  { month: "March", players: 8 },
-  { month: "April", players: 12 },
-  { month: "May", players: 15 },
-  { month: "June", players: 18 },
-  { month: "July", players: 24 },
-  { month: "August", players: 31 },
-] as const;
-
-const WEEKLY_ATTENDANCE = [
-  { month: "June", week: "W1", label: "Jun 1", attendance: 22 },
-  { month: "June", week: "W2", label: "Jun 8", attendance: 28 },
-  { month: "June", week: "W3", label: "Jun 15", attendance: 25 },
-  { month: "June", week: "W4", label: "Jun 22", attendance: 31 },
-  { month: "July", week: "W1", label: "Jul 6", attendance: 34 },
-  { month: "July", week: "W2", label: "Jul 13", attendance: 37 },
-  { month: "July", week: "W3", label: "Jul 20", attendance: 33 },
-  { month: "July", week: "W4", label: "Jul 27", attendance: 39 },
-  { month: "August", week: "W1", label: "Aug 3", attendance: 36 },
-  { month: "August", week: "W2", label: "Aug 10", attendance: 41 },
-  { month: "August", week: "W3", label: "Aug 17", attendance: 38 },
-  { month: "August", week: "W4", label: "Aug 24", attendance: 44 },
-] as const;
+/** Rough team size used for the estimated team count tile. */
+const PLAYERS_PER_TEAM = 8;
 
 type RegistrationInsightsProps = {
-  registeredPlayers: number;
+  state: AppState;
+  /** Program whose clinics fill the enrollment chart. */
+  programId?: string;
+  programLabel: string;
   rosterPlayers: number;
-  paymentLinksSent: number;
 };
 
 function formatCurrency(amount: number) {
@@ -41,11 +29,15 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function PlayerTrendLine({
-  points,
-}: {
-  points: readonly { month: string; players: number }[];
-}) {
+function EmptyChart({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex h-44 items-center justify-center rounded-lg bg-surface-muted text-sm text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+function PlayerTrendLine({ points }: { points: readonly PlayerTrendPoint[] }) {
   const width = 480;
   const height = 170;
   const padding = { top: 18, right: 12, bottom: 28, left: 28 };
@@ -80,7 +72,7 @@ function PlayerTrendLine({
       viewBox={`0 0 ${width} ${height}`}
       className="h-44 w-full"
       role="img"
-      aria-label="Player registrations across six months"
+      aria-label="Players enrolled per month"
     >
       <defs>
         <linearGradient id="player-trend-fill" x1="0" y1="0" x2="0" y2="1">
@@ -115,7 +107,7 @@ function PlayerTrendLine({
       />
 
       {coords.map((point) => (
-        <g key={point.month}>
+        <g key={`${point.year}-${point.month}`}>
           <circle
             cx={point.x}
             cy={point.y}
@@ -137,7 +129,7 @@ function PlayerTrendLine({
             textAnchor="middle"
             className="fill-muted-foreground text-[9px] font-medium uppercase"
           >
-            {point.month.slice(0, 3)}
+            {point.label.slice(0, 3)}
           </text>
         </g>
       ))}
@@ -145,40 +137,38 @@ function PlayerTrendLine({
   );
 }
 
-function WeeklyAttendanceBars({
-  weeks,
+function ClinicEnrollmentBars({
+  bars,
 }: {
-  weeks: readonly {
-    month: string;
-    week: string;
-    label: string;
-    attendance: number;
-  }[];
+  bars: readonly ClinicEnrollmentBar[];
 }) {
   const width = 560;
   const height = 200;
   const padding = { top: 20, right: 12, bottom: 36, left: 28 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const maxAttendance = Math.max(...weeks.map((week) => week.attendance), 1);
-  const gap = 4;
-  const barWidth = (chartWidth - gap * (weeks.length - 1)) / weeks.length;
-
-  const monthColors: Record<string, string> = {
-    June: "fill-chart-1",
-    July: "fill-chart-2",
-    August: "fill-chart-3",
-  };
+  const maxValue = Math.max(
+    ...bars.map((bar) => Math.max(bar.capacity, bar.enrolled)),
+    1,
+  );
+  const gap = 8;
+  const barWidth = Math.min(
+    64,
+    (chartWidth - gap * (bars.length - 1)) / bars.length,
+  );
+  const offset =
+    (chartWidth - (barWidth * bars.length + gap * (bars.length - 1))) / 2;
+  const baseline = padding.top + chartHeight;
 
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
       className="h-52 w-full"
       role="img"
-      aria-label="Weekly team attendance for June, July, and August"
+      aria-label="Players enrolled against capacity for each clinic"
     >
       {[0.25, 0.5, 0.75, 1].map((ratio) => {
-        const y = padding.top + chartHeight - ratio * chartHeight;
+        const y = baseline - ratio * chartHeight;
         return (
           <line
             key={ratio}
@@ -192,27 +182,35 @@ function WeeklyAttendanceBars({
         );
       })}
 
-      {weeks.map((week, index) => {
-        const barHeight = (week.attendance / maxAttendance) * chartHeight;
-        const x = padding.left + index * (barWidth + gap);
-        const y = padding.top + chartHeight - barHeight;
+      {bars.map((bar, index) => {
+        const x = padding.left + offset + index * (barWidth + gap);
+        const capacityHeight = (bar.capacity / maxValue) * chartHeight;
+        const enrolledHeight = (bar.enrolled / maxValue) * chartHeight;
         return (
-          <g key={`${week.month}-${week.week}`}>
+          <g key={bar.sessionId}>
             <rect
               x={x}
-              y={y}
+              y={baseline - capacityHeight}
               width={barWidth}
-              height={barHeight}
+              height={capacityHeight}
               rx="3"
-              className={cn(monthColors[week.month] ?? "fill-chart-5")}
+              className="fill-muted"
+            />
+            <rect
+              x={x}
+              y={baseline - enrolledHeight}
+              width={barWidth}
+              height={enrolledHeight}
+              rx="3"
+              className="fill-chart-1"
             />
             <text
               x={x + barWidth / 2}
-              y={y - 6}
+              y={baseline - capacityHeight - 6}
               textAnchor="middle"
               className="fill-foreground text-[8px] font-semibold"
             >
-              {week.attendance}
+              {bar.enrolled}/{bar.capacity}
             </text>
             <text
               x={x + barWidth / 2}
@@ -220,7 +218,7 @@ function WeeklyAttendanceBars({
               textAnchor="middle"
               className="fill-muted-foreground text-[7px] font-medium"
             >
-              {week.week}
+              {bar.label}
             </text>
             <text
               x={x + barWidth / 2}
@@ -228,7 +226,7 @@ function WeeklyAttendanceBars({
               textAnchor="middle"
               className="fill-muted-foreground text-[7px]"
             >
-              {week.month.slice(0, 3)}
+              {bar.monthLabel}
             </text>
           </g>
         );
@@ -238,25 +236,30 @@ function WeeklyAttendanceBars({
 }
 
 export function RegistrationInsights({
-  registeredPlayers,
+  state,
+  programId,
+  programLabel,
   rosterPlayers,
-  paymentLinksSent,
 }: RegistrationInsightsProps) {
-  const revenueCollected = paymentLinksSent * REGISTRATION_FEE;
-  const teamCount = Math.max(1, Math.ceil(rosterPlayers / 8));
+  const registeredPlayers = state.players.length;
+  const paidCount = state.players.filter(isPlayerPaid).length;
+  const revenueCollected = sumPaidRevenue(state.players);
+  const teamCount = Math.max(1, Math.ceil(rosterPlayers / PLAYERS_PER_TEAM));
+  const trend = buildPlayerTrend(state.players, state.sessions);
+  const enrollment = programId ? buildClinicEnrollment(state, programId) : [];
 
   const cards = [
     {
       label: "Revenue collected",
       tone: "success",
       value: formatCurrency(revenueCollected),
-      detail: `${paymentLinksSent} paid registration${paymentLinksSent === 1 ? "" : "s"}`,
+      detail: `${paidCount} paid registration${paidCount === 1 ? "" : "s"}`,
     },
     {
-      label: "Number of teams",
+      label: "Estimated teams",
       tone: "accent",
       value: String(teamCount),
-      detail: "Based on current roster size",
+      detail: `${programLabel} roster ÷ ${PLAYERS_PER_TEAM} players`,
     },
     {
       label: "Registered vs roster",
@@ -274,8 +277,8 @@ export function RegistrationInsights({
       <div className="space-y-1">
         <h3 className="font-heading text-xl font-medium">Insights</h3>
         <p className="text-sm text-muted-foreground">
-          Snapshot of registration health, six-month growth, and summer
-          attendance.
+          Snapshot of registration health, monthly enrollment, and clinic
+          capacity.
         </p>
       </div>
 
@@ -302,70 +305,76 @@ export function RegistrationInsights({
               Player trend
             </p>
             <h4 className="font-heading text-lg font-medium">
-              March through August
+              {trend.length > 0
+                ? `${trend[0].label} ${trend[0].year} – ${trend[trend.length - 1].label} ${trend[trend.length - 1].year}`
+                : "No clinics yet"}
             </h4>
           </div>
-          <p className="text-xs text-muted-foreground">Players registered</p>
+          <p className="text-xs text-muted-foreground">Players enrolled</p>
         </div>
-        <PlayerTrendLine points={SIX_MONTH_PLAYER_TREND} />
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {SIX_MONTH_PLAYER_TREND.map((point, index) => {
-            const previous = SIX_MONTH_PLAYER_TREND[index - 1];
-            const delta = previous ? point.players - previous.players : null;
-            return (
-              <span
-                key={point.month}
-                className="inline-flex items-center gap-1.5"
-              >
-                <span className="font-medium text-foreground">
-                  {point.month.slice(0, 3)}
-                </span>
-                {point.players}
-                {delta !== null ? (
+        {trend.length > 0 ? (
+          <>
+            <PlayerTrendLine points={trend} />
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+              {trend.map((point, index) => {
+                const previous = trend[index - 1];
+                const delta = previous ? point.players - previous.players : null;
+                return (
                   <span
-                    className={cn(
-                      "font-medium",
-                      delta >= 0 ? "text-tone-success-ink" : "text-red-700",
-                    )}
+                    key={`${point.year}-${point.month}`}
+                    className="inline-flex items-center gap-1.5"
                   >
-                    {delta >= 0 ? `+${delta}` : delta}
+                    <span className="font-medium text-foreground">
+                      {point.label.slice(0, 3)}
+                    </span>
+                    {point.players}
+                    {delta !== null ? (
+                      <span
+                        className={cn(
+                          "font-medium",
+                          delta >= 0 ? "text-tone-success-ink" : "text-destructive",
+                        )}
+                      >
+                        {delta >= 0 ? `+${delta}` : delta}
+                      </span>
+                    ) : null}
                   </span>
-                ) : null}
-              </span>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <EmptyChart>Add a program with clinics to see enrollment trends.</EmptyChart>
+        )}
       </article>
 
       <article
-        data-testid="registration-attendance-bars"
+        data-testid="registration-clinic-enrollment"
         className="rounded-xl border bg-background p-4 shadow-sm sm:p-5"
       >
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Team attendance
+              Clinic enrollment
             </p>
-            <h4 className="font-heading text-lg font-medium">
-              Weekly · June, July, August
-            </h4>
+            <h4 className="font-heading text-lg font-medium">{programLabel}</h4>
           </div>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-brand-soft0" aria-hidden />
-              June
+              <span className="size-2.5 rounded-sm bg-chart-1" aria-hidden />
+              Enrolled
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-chart-2" aria-hidden />
-              July
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-chart-3" aria-hidden />
-              August
+              <span className="size-2.5 rounded-sm bg-muted" aria-hidden />
+              Capacity
             </span>
           </div>
         </div>
-        <WeeklyAttendanceBars weeks={WEEKLY_ATTENDANCE} />
+        {enrollment.length > 0 ? (
+          <ClinicEnrollmentBars bars={enrollment} />
+        ) : (
+          <EmptyChart>No clinics scheduled for this program yet.</EmptyChart>
+        )}
       </article>
     </section>
   );

@@ -2,13 +2,14 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { OrgProvider } from "@/components/org-provider";
 import { RegistrationProvider } from "@/components/registration-provider";
+import { canManageOrg } from "@/lib/auth";
 import { getUserForSession, sessionCookieName } from "@/lib/db/auth-repository";
 import { getOrganizationBySlug } from "@/lib/db/platform-repository";
 
-/** Admins can open draft (unpublished) orgs to set them up. */
-async function viewerIsAdmin(): Promise<boolean> {
+/** The platform admin and the org's owner can open it while draft to set it up. */
+async function viewerManagesOrg(orgId: string): Promise<boolean> {
   const token = (await cookies()).get(sessionCookieName())?.value;
-  return (await getUserForSession(token))?.role === "admin";
+  return canManageOrg(await getUserForSession(token), orgId);
 }
 
 export default async function OrgLayout({
@@ -17,7 +18,7 @@ export default async function OrgLayout({
 }: LayoutProps<"/o/[slug]">) {
   const { slug } = await params;
   const org = await getOrganizationBySlug(slug);
-  if (!org || (org.status !== "live" && !(await viewerIsAdmin()))) {
+  if (!org || (org.status !== "live" && !(await viewerManagesOrg(org.id)))) {
     notFound();
   }
 

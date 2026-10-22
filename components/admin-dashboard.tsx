@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Menu, UserPlus, X } from "lucide-react";
 import { AdminOrganizations } from "@/components/admin-organizations";
 import { AdminScheduleAvailability } from "@/components/admin-schedule-availability";
 import { useAuth } from "@/components/auth-provider";
-import { useOrgHref } from "@/components/org-provider";
 import { FinancialsPlayersTable } from "@/components/financials-players-table";
 import { OrgSwitcher } from "@/components/org-switcher";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
@@ -14,11 +12,14 @@ import { PlayersRosterGrid } from "@/components/players-roster-grid";
 import { RegistrationInsights } from "@/components/registration-insights";
 import { StatTile } from "@/components/stat-tile";
 import { useRegistration } from "@/components/registration-provider";
+import { useOrgAdminAccess } from "@/components/use-org-admin-access";
 import { Button } from "@/components/ui/button";
 import {
   DASHBOARD_NAV,
+  type DashboardNavItem,
   type DashboardSection,
 } from "@/lib/dashboard-nav";
+import { isPlatformAdmin } from "@/lib/auth";
 import { formatMonth } from "@/lib/format";
 import { getLatestSession } from "@/lib/session-showcase";
 import { useOrganizations } from "@/lib/use-organizations";
@@ -26,11 +27,13 @@ import { type Player } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function NavButtons({
+  items,
   active,
   onSelect,
   orientation = "vertical",
   testIdPrefix = "dashboard-nav",
 }: {
+  items: DashboardNavItem[];
   active: DashboardSection;
   onSelect: (section: DashboardSection) => void;
   orientation?: "vertical" | "horizontal";
@@ -45,7 +48,7 @@ function NavButtons({
           : "grid grid-cols-5 gap-1",
       )}
     >
-      {DASHBOARD_NAV.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon;
         const isActive = active === item.id;
         return (
@@ -81,9 +84,9 @@ function NavButtons({
 }
 
 export function AdminDashboard() {
-  const router = useRouter();
-  const { user, canViewDashboard, canEdit } = useAuth();
-  const orgHref = useOrgHref();
+  const { user, canEdit } = useAuth();
+  const canViewDashboard = useOrgAdminAccess();
+  const platformAdmin = isPlatformAdmin(user);
   const {
     state,
     syncFromStorage,
@@ -97,7 +100,7 @@ export function AdminDashboard() {
     organizations,
     error: organizationsError,
     reload: reloadOrganizations,
-  } = useOrganizations();
+  } = useOrganizations(platformAdmin);
 
   const [activeSection, setActiveSection] =
     useState<DashboardSection>("registration");
@@ -105,11 +108,6 @@ export function AdminDashboard() {
   const [playerDialogOpen, setPlayerDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | undefined>();
 
-  useEffect(() => {
-    if (!canViewDashboard) {
-      router.replace(user?.role === "user" ? "/account" : orgHref("/"));
-    }
-  }, [canViewDashboard, router, user?.role, orgHref]);
 
   if (!canViewDashboard || !user) {
     return <p className="text-muted-foreground">Redirecting…</p>;
@@ -138,7 +136,10 @@ export function AdminDashboard() {
     (player) => player.paymentLinkSentAt,
   ).length;
   const pendingCount = state.players.length - sentCount;
-  const activeNav = DASHBOARD_NAV.find((item) => item.id === activeSection)!;
+  const navItems = platformAdmin
+    ? DASHBOARD_NAV
+    : DASHBOARD_NAV.filter((item) => !item.platformOnly);
+  const activeNav = navItems.find((item) => item.id === activeSection)!;
   const upcomingSession = getLatestSession(state.sessions);
   const upcomingProgramLabel = upcomingSession
     ? (upcomingSession.label ?? formatMonth(upcomingSession.month))
@@ -168,7 +169,7 @@ export function AdminDashboard() {
             Welcome, {user.name}. Track registration, financials, schedules,
             messaging, and rosters.
           </p>
-          <OrgSwitcher organizations={organizations} />
+          {platformAdmin ? <OrgSwitcher organizations={organizations} /> : null}
         </div>
         <Button
           type="button"
@@ -195,6 +196,7 @@ export function AdminDashboard() {
           className="rounded-2xl border bg-background p-3 shadow-sm ring-1 ring-foreground/5 md:hidden"
         >
           <NavButtons
+            items={navItems}
             active={activeSection}
             onSelect={selectSection}
             testIdPrefix="dashboard-drawer-nav"
@@ -212,6 +214,7 @@ export function AdminDashboard() {
               Sections
             </p>
             <NavButtons
+            items={navItems}
               active={activeSection}
               onSelect={selectSection}
               testIdPrefix="dashboard-nav"
@@ -304,9 +307,10 @@ export function AdminDashboard() {
               </article>
 
               <RegistrationInsights
-                registeredPlayers={state.players.length}
+                state={state}
+                programId={upcomingSession?.programId}
+                programLabel={upcomingProgramLabel}
                 rosterPlayers={upcomingProgramPlayers}
-                paymentLinksSent={sentCount}
               />
 
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-border bg-brand-soft px-5 py-4">
@@ -349,11 +353,12 @@ export function AdminDashboard() {
             </section>
           ) : null}
 
-          {activeSection === "organizations" ? (
+          {activeSection === "organizations" && platformAdmin ? (
             <AdminOrganizations
               organizations={organizations}
               loadError={organizationsError}
               onChanged={reloadOrganizations}
+              onOpenCurrentOrg={() => selectSection("registration")}
             />
           ) : null}
 
@@ -445,6 +450,7 @@ export function AdminDashboard() {
         className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-3 py-2 backdrop-blur md:hidden supports-backdrop-filter:bg-background/90"
       >
         <NavButtons
+            items={navItems}
           active={activeSection}
           onSelect={selectSection}
           orientation="horizontal"

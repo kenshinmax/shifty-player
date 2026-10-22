@@ -49,11 +49,13 @@ export function SiteHeader() {
   const orgSlug = useNavOrgSlug();
   const navLinks = useNavLinks();
   const homeHref = navLinks[0].href;
-  const adminHref = orgSlug
-    ? `/o/${orgSlug}/admin`
-    : user
-      ? getPostLoginPath(user)
-      : null;
+  // Owners always go to their own org's admin, even from another org's pages.
+  const adminHref =
+    orgSlug && user?.role !== "owner"
+      ? `/o/${orgSlug}/admin`
+      : user
+        ? getPostLoginPath(user)
+        : null;
 
   return (
     <>

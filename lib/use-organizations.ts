@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { fetchOrganizations } from "@/lib/platform-api";
-import type { Organization } from "@/lib/types";
+import type { OrganizationWithOwners } from "@/lib/types";
 
-/** Every organization (drafts included) for admin screens. */
-export function useOrganizations() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+/**
+ * Every organization (drafts included) for the platform admin's screens.
+ * Pass `enabled: false` for org owners, who can't list other orgs.
+ */
+export function useOrganizations(enabled = true) {
+  const [organizations, setOrganizations] = useState<OrganizationWithOwners[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -19,6 +22,7 @@ export function useOrganizations() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     fetchOrganizations()
       .then((next) => {
@@ -32,7 +36,7 @@ export function useOrganizations() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   return { organizations, error, reload };
 }

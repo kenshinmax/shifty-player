@@ -40,7 +40,7 @@ export async function POST(
   const { orgId } = await context.params;
   const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
-  const { user, viewer } = await resolveViewer(request);
+  const { user, viewer } = await resolveViewer(request, orgId);
   if (!user) return signInRequired();
   if (isStripeConfigured() && viewer.kind !== "admin") {
     return NextResponse.json({ error: "Online payment is required." }, { status: 409 });

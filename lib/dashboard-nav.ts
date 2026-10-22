@@ -21,6 +21,8 @@ export type DashboardNavItem = {
   label: string;
   description: string;
   icon: LucideIcon;
+  /** Shown to the platform admin only, not to org owners. */
+  platformOnly?: boolean;
 };
 
 export const DASHBOARD_NAV: DashboardNavItem[] = [
@@ -59,5 +61,6 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
     label: "Organizations",
     description: "Create organizations and publish drafts.",
     icon: Building2,
+    platformOnly: true,
   },
 ];

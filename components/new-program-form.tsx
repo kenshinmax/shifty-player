@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,15 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/components/auth-provider";
 import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
+import { useOrgAdminAccess } from "@/components/use-org-admin-access";
 import { DEFAULT_CLINIC_CAPACITY } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function NewProgramForm() {
   const router = useRouter();
-  const { user, canViewDashboard } = useAuth();
+  const canViewDashboard = useOrgAdminAccess();
   const orgHref = useOrgHref();
   const { createProgram } = useRegistration();
 
@@ -40,11 +40,6 @@ export function NewProgramForm() {
   const [spots, setSpots] = useState(String(DEFAULT_CLINIC_CAPACITY));
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!canViewDashboard) {
-      router.replace(user?.role === "user" ? "/account" : orgHref("/"));
-    }
-  }, [canViewDashboard, router, user?.role, orgHref]);
 
   if (!canViewDashboard) {
     return <p className="text-muted-foreground">Redirecting…</p>;

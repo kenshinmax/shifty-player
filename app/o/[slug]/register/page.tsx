@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { isOrgStaff } from "@/lib/auth";
 import { useOrgHref } from "@/components/org-provider";
 import { ParentProgramRegistration } from "@/components/parent-program-registration";
 
@@ -17,7 +18,7 @@ export default function OrgRegisterPage() {
       return;
     }
     if (!canViewPlayerDashboard) {
-      router.replace(orgHref(user.role === "admin" ? "/admin" : "/"));
+      router.replace(orgHref(isOrgStaff(user) ? "/admin" : "/"));
     }
   }, [user, canViewPlayerDashboard, router, orgHref]);
 

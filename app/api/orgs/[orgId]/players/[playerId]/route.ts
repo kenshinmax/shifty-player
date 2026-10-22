@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireOrgAdmin } from "@/lib/api-auth";
 import { ADMIN_VIEWER, requireOrg } from "@/lib/api-viewer";
 import {
   deletePlayerInDb,
@@ -18,7 +18,7 @@ export async function PATCH(
   const { orgId, playerId } = await context.params;
   const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
-  const auth = await requireAdmin(request);
+  const auth = await requireOrgAdmin(request, orgId);
   if (auth.error) return auth.error;
 
   let body: PlayerInput;
@@ -42,7 +42,7 @@ export async function DELETE(
   const { orgId, playerId } = await context.params;
   const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
-  const auth = await requireAdmin(request);
+  const auth = await requireOrgAdmin(request, orgId);
   if (auth.error) return auth.error;
 
   const result = await deletePlayerInDb(orgId, playerId);

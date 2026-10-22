@@ -22,7 +22,7 @@ test("admin creates a draft organization, switches orgs, then publishes it", asy
 
   await page.getByTestId("dashboard-nav-organizations").click();
   const form = page.getByTestId("create-organization-form");
-  await form.getByLabel("Name").fill(name);
+  await form.getByLabel("Name", { exact: true }).fill(name);
   await expect(form.getByLabel("URL")).toHaveValue(slug);
   await form.getByRole("button", { name: "Create organization" }).click();
 

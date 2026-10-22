@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireOrgAdmin } from "@/lib/api-auth";
 import { ADMIN_VIEWER, requireOrg } from "@/lib/api-viewer";
 import { createClinicInDb, getStateForViewer } from "@/lib/db/registration-repository";
 import type { SessionInput } from "@/lib/player-store";
@@ -14,7 +14,7 @@ export async function POST(
   const { orgId } = await context.params;
   const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
-  const auth = await requireAdmin(request);
+  const auth = await requireOrgAdmin(request, orgId);
   if (auth.error) return auth.error;
 
   let body: SessionInput;

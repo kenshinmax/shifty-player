@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { AuthUser } from "@/lib/auth";
+import { canManageOrg, type AuthUser } from "@/lib/auth";
 import { getUserForSession, readSessionToken } from "@/lib/db/auth-repository";
 import { getOrganizationById } from "@/lib/db/platform-repository";
 import {
@@ -9,17 +9,31 @@ import {
 } from "@/lib/db/registration-repository";
 import type { AppState, Organization } from "@/lib/types";
 
-/** Who is calling: admin role → admin, any other signed-in user → parent, else public. */
-export async function resolveViewer(
-  request: Request,
-): Promise<{ user: AuthUser | null; viewer: Viewer }> {
-  const user = await getUserForSession(readSessionToken(request.headers.get("cookie")));
-  if (!user) return { user: null, viewer: { kind: "public" } };
-  if (user.role === "admin") return { user, viewer: { kind: "admin" } };
-  return { user, viewer: { kind: "parent", userId: user.id } };
+/**
+ * How `user` sees `orgId`: the platform admin or that org's owner → admin,
+ * any other signed-in user → parent, else public.
+ */
+export function viewerFor(user: AuthUser | null, orgId: string): Viewer {
+  if (!user) return { kind: "public" };
+  if (canManageOrg(user, orgId)) return { kind: "admin" };
+  return { kind: "parent", userId: user.id };
 }
 
-/** The viewer behind a route that already passed requireAdmin. */
+/** Who is calling, and how they see `orgId`. */
+export async function resolveViewer(
+  request: Request,
+  orgId: string,
+): Promise<{ user: AuthUser | null; viewer: Viewer }> {
+  const user = await getUserForSession(readSessionToken(request.headers.get("cookie")));
+  return { user, viewer: viewerFor(user, orgId) };
+}
+
+/** The signed-in user, for routes that are not scoped to one org. */
+export async function resolveUser(request: Request): Promise<AuthUser | null> {
+  return getUserForSession(readSessionToken(request.headers.get("cookie")));
+}
+
+/** The viewer behind a route that already passed requireOrgAdmin. */
 export const ADMIN_VIEWER: Viewer = { kind: "admin" };
 
 export function orgNotFound(): NextResponse {
@@ -27,8 +41,9 @@ export function orgNotFound(): NextResponse {
 }
 
 /**
- * Live orgs are reachable by everyone. Admins can also open draft (or
- * suspended) orgs; for anyone else missing and non-live orgs look identical.
+ * Live orgs are reachable by everyone. The platform admin and the org's owner
+ * can also open it while draft (or suspended); for anyone else missing and
+ * non-live orgs look identical.
  */
 export async function requireOrg(
   orgId: string,
@@ -37,7 +52,7 @@ export async function requireOrg(
   const org = await getOrganizationById(orgId);
   if (!org) return { error: orgNotFound() };
   if (org.status === "live") return { org };
-  const { viewer } = await resolveViewer(request);
+  const { viewer } = await resolveViewer(request, org.id);
   return viewer.kind === "admin" ? { org } : { error: orgNotFound() };
 }
 
@@ -47,8 +62,8 @@ export function signInRequired(): NextResponse {
 
 /**
  * The repository lets any parent's child enroll for the first time, so routes
- * that enroll or charge for a child check that the caller is an admin or that
- * child's parent. Returns the org's full internal state for server-side lookups.
+ * that enroll or charge for a child check that the caller manages the org or
+ * is that child's parent. Returns the org's full internal state for server-side lookups.
  */
 export async function requireEnrollableChild(
   user: AuthUser,
@@ -57,7 +72,7 @@ export async function requireEnrollableChild(
 ): Promise<{ state: AppState; error?: undefined } | { state?: undefined; error: NextResponse }> {
   const state = await getRegistrationState(orgId);
   const child = state.players.find((player) => player.id === playerId);
-  if (!child || (user.role !== "admin" && child.parentUserId !== user.id)) {
+  if (!child || (!canManageOrg(user, orgId) && child.parentUserId !== user.id)) {
     return {
       error: NextResponse.json({ error: "Player not found." }, { status: 404 }),
     };

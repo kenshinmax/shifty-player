@@ -124,6 +124,12 @@ export type Organization = {
   approvedAt?: string;
 };
 
+/** An org's owner account as shown to the platform admin. */
+export type OrganizationOwner = { name: string; email: string };
+
+/** Platform admin's view of an org, with the accounts that run it. */
+export type OrganizationWithOwners = Organization & { owners: OrganizationOwner[] };
+
 export type OrgProgram = Program & { orgId: string };
 export type OrgSession = Session & { orgId: string };
 

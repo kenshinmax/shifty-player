@@ -13,6 +13,6 @@ export async function GET(
   const found = await requireOrg(orgId, request);
   if (found.error) return found.error;
 
-  const { viewer } = await resolveViewer(request);
+  const { viewer } = await resolveViewer(request, found.org.id);
   return NextResponse.json({ state: await getStateForViewer(found.org.id, viewer) });
 }

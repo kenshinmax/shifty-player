@@ -6,6 +6,7 @@ import {
   type AuthUser,
   type DemoAccount,
   type SignupInput,
+  type UserRole,
   validateSignupInput,
 } from "@/lib/auth";
 
@@ -18,9 +19,12 @@ export type StoredUser = {
   id: string;
   name: string;
   email: string;
-  role: "user" | "admin";
+  role: UserRole;
   passwordHash: string;
   marketingOptIn?: boolean;
+  /** Owners only: the organization they run. */
+  orgId?: string;
+  orgSlug?: string;
 };
 
 export type AuthSession = {
@@ -104,6 +108,7 @@ function toAuthUser(user: StoredUser): AuthUser {
     name: user.name,
     email: user.email,
     role: user.role,
+    ...(user.orgId ? { orgId: user.orgId, orgSlug: user.orgSlug } : {}),
   };
 }
 
@@ -183,6 +188,103 @@ export async function registerUser(
   }
 
   return { error: null, user: toAuthUser(user) };
+}
+
+export type OwnerInput = { name: string; email: string; password: string };
+
+/** Reads `{ name, email, password }`; missing fields become empty strings and fail validation. */
+export function parseOwnerInput(value: unknown): OwnerInput {
+  const fields = (typeof value === "object" && value !== null ? value : {}) as Record<string, unknown>;
+  const text = (key: string) => (typeof fields[key] === "string" ? (fields[key] as string) : "");
+  return { name: text("name"), email: text("email"), password: text("password") };
+}
+
+type OwnerPlan =
+  | { kind: "create"; input: OwnerInput }
+  | { kind: "assign"; user: StoredUser };
+
+/**
+ * An existing account (matched by email) is assigned as-is, keeping its
+ * name and password; otherwise all three fields are needed for a new account.
+ */
+async function planOwner(input: OwnerInput): Promise<{ error: string } | { plan: OwnerPlan }> {
+  const email = input.email.trim();
+  if (!email) return { error: "Email is required." };
+  const existing = await findUserByEmail(email);
+  if (!existing) {
+    const validationError = validateSignupInput(input);
+    return validationError ? { error: validationError } : { plan: { kind: "create", input } };
+  }
+  if (existing.role === "admin") {
+    return { error: "The platform admin can't be an organization owner." };
+  }
+  if (existing.role === "owner") {
+    return { error: "That account already owns an organization." };
+  }
+  return { plan: { kind: "assign", user: existing } };
+}
+
+/** Checks an owner's details before anything is written. */
+export async function validateOwnerInput(input: OwnerInput): Promise<string | null> {
+  const result = await planOwner(input);
+  return "error" in result ? result.error : null;
+}
+
+/**
+ * Makes `org`'s single owner: assigns the existing account with that email,
+ * or creates a new one.
+ */
+export async function assignOwner(
+  input: OwnerInput,
+  org: { id: string; slug: string },
+): Promise<{ error: string; user?: undefined } | { error: null; user: AuthUser }> {
+  if ((await listOwners()).some((owner) => owner.orgId === org.id)) {
+    return { error: "This organization already has an owner." };
+  }
+  const result = await planOwner(input);
+  if ("error" in result) return { error: result.error };
+  const ownership = { role: "owner" as const, orgId: org.id, orgSlug: org.slug };
+
+  if (result.plan.kind === "assign") {
+    const user: StoredUser = { ...result.plan.user, ...ownership };
+    if (!isMongoConfigured()) {
+      const users = getMemoryAuth().users;
+      users[users.findIndex((entry) => entry.id === user.id)] = user;
+    } else {
+      const db = await getDb();
+      await db.collection(USERS).updateOne({ id: user.id }, { $set: ownership });
+    }
+    return { error: null, user: toAuthUser(user) };
+  }
+
+  const { input: fields } = result.plan;
+  const user: StoredUser = {
+    id: `owner-${crypto.randomUUID()}`,
+    name: fields.name.trim(),
+    email: fields.email.trim().toLowerCase(),
+    passwordHash: await bcrypt.hash(fields.password, 10),
+    ...ownership,
+  };
+
+  if (!isMongoConfigured()) {
+    getMemoryAuth().users.push(user);
+  } else {
+    const db = await getDb();
+    await db.collection(USERS).insertOne(user as never);
+  }
+
+  return { error: null, user: toAuthUser(user) };
+}
+
+/** Owner accounts across all orgs, for the platform admin's org list. */
+export async function listOwners(): Promise<AuthUser[]> {
+  await ensureAuthSeeded();
+  if (!isMongoConfigured()) {
+    return getMemoryAuth().users.filter((user) => user.role === "owner").map(toAuthUser);
+  }
+  const db = await getDb();
+  const docs = await db.collection(USERS).find({ role: "owner" }).toArray();
+  return docs.map((doc) => toAuthUser(doc as unknown as StoredUser));
 }
 
 export async function createSession(userId: string): Promise<string> {

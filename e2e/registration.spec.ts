@@ -112,22 +112,22 @@ test("admin dashboard players and payment links", async ({ page }) => {
     "Revenue collected",
   );
   await expect(page.getByTestId("registration-insights")).toContainText(
-    "Number of teams",
+    "Estimated teams",
   );
   await expect(page.getByTestId("registration-insights")).toContainText(
     "Registered vs roster",
   );
   await expect(page.getByTestId("registration-player-trend")).toContainText(
-    "March",
+    "Jul",
   );
   await expect(page.getByTestId("registration-player-trend")).toContainText(
     "August",
   );
-  await expect(page.getByTestId("registration-attendance-bars")).toContainText(
-    "Team attendance",
+  await expect(page.getByTestId("registration-clinic-enrollment")).toContainText(
+    "Clinic enrollment",
   );
-  await expect(page.getByTestId("registration-attendance-bars")).toContainText(
-    "June",
+  await expect(page.getByTestId("registration-clinic-enrollment")).toContainText(
+    "W1",
   );
 
   await page.getByTestId("dashboard-nav-financials").click();

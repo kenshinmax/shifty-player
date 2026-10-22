@@ -1,12 +1,19 @@
 import { DEFAULT_ORG_SLUG } from "@/lib/organizations";
 
-export type UserRole = "user" | "admin";
+/**
+ * `admin` runs the whole platform; `owner` runs one organization (`orgId`);
+ * `user` is a parent.
+ */
+export type UserRole = "user" | "admin" | "owner";
 
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  /** Owners only: the organization they run. */
+  orgId?: string;
+  orgSlug?: string;
 };
 
 export type DemoAccount = AuthUser & {
@@ -51,20 +58,36 @@ export function validateSignupInput(input: SignupInput): string | null {
   return null;
 }
 
+/** Platform admin: sees and manages every organization. */
+export function isPlatformAdmin(user: AuthUser | null): boolean {
+  return user?.role === "admin";
+}
+
+/** Admin or owner: staff who run an org rather than register children. */
+export function isOrgStaff(user: AuthUser | null): boolean {
+  return user?.role === "admin" || user?.role === "owner";
+}
+
+/** Platform admins manage every org; owners manage only their own. */
+export function canManageOrg(user: AuthUser | null, orgId: string): boolean {
+  if (user?.role === "admin") return true;
+  return user?.role === "owner" && user.orgId === orgId;
+}
+
 export function canAddPlayer(user: AuthUser | null): boolean {
   return user !== null;
 }
 
 export function canEdit(user: AuthUser | null): boolean {
-  return user?.role === "admin";
+  return isOrgStaff(user);
 }
 
 export function canManageSessions(user: AuthUser | null): boolean {
-  return user?.role === "admin";
+  return isOrgStaff(user);
 }
 
 export function canViewDashboard(user: AuthUser | null): boolean {
-  return user?.role === "admin";
+  return isOrgStaff(user);
 }
 
 export function canViewPlayerDashboard(user: AuthUser | null): boolean {
@@ -74,6 +97,7 @@ export function canViewPlayerDashboard(user: AuthUser | null): boolean {
 /** Default landing path after a successful sign-in. */
 export function getPostLoginPath(user: AuthUser): string {
   if (user.role === "admin") return `/o/${DEFAULT_ORG_SLUG}/admin`;
+  if (user.role === "owner" && user.orgSlug) return `/o/${user.orgSlug}/admin`;
   return "/account";
 }
 

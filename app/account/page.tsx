@@ -31,7 +31,7 @@ import {
   formatProgramDate,
   getCompletedProgramsForUser,
 } from "@/lib/player-history";
-import { getPostLoginPath } from "@/lib/auth";
+import { getPostLoginPath, isOrgStaff } from "@/lib/auth";
 import type { AppState, Child } from "@/lib/types";
 
 type AccountResponse = {
@@ -54,7 +54,7 @@ export default function AccountPage() {
       return;
     }
     if (!canViewPlayerDashboard) {
-      router.replace(user.role === "admin" ? getPostLoginPath(user) : "/");
+      router.replace(isOrgStaff(user) ? getPostLoginPath(user) : "/");
     }
   }, [user, canViewPlayerDashboard, router]);
 

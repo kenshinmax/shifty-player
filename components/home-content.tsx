@@ -13,6 +13,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { isOrgStaff } from "@/lib/auth";
 import { LoginDialog } from "@/components/login-dialog";
 import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
@@ -80,7 +81,7 @@ export function HomeContent() {
   const openRegisterFlow = () => {
     // Signed-in admins go to this org's admin; parents go to its register page.
     if (user) {
-      router.push(orgHref(user.role === "admin" ? "/admin" : "/register"));
+      router.push(orgHref(isOrgStaff(user) ? "/admin" : "/register"));
       return;
     }
     setLoginOpen(true);

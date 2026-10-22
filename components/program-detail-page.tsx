@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Pencil, Plus, UserPlus } from "lucide-react";
 import { PlayerFormDialog } from "@/components/player-form-dialog";
 import { PlayersRosterGrid } from "@/components/players-roster-grid";
 import { useAuth } from "@/components/auth-provider";
+import { useOrgAdminAccess } from "@/components/use-org-admin-access";
 import { useOrgHref } from "@/components/org-provider";
 import { useRegistration } from "@/components/registration-provider";
 import { Badge } from "@/components/ui/badge";
@@ -53,8 +54,8 @@ function formatUsd(amount: number): string {
 export function ProgramDetailPage() {
   const params = useParams<{ programId: string }>();
   const programId = params.programId;
-  const router = useRouter();
-  const { user, canViewDashboard, canEdit } = useAuth();
+  const { canEdit } = useAuth();
+  const canViewDashboard = useOrgAdminAccess();
   const orgHref = useOrgHref();
   const {
     state,
@@ -95,11 +96,6 @@ export function ProgramDetailPage() {
     [state.players, state.sessions, program],
   );
 
-  useEffect(() => {
-    if (!canViewDashboard) {
-      router.replace(user?.role === "user" ? "/account" : orgHref("/"));
-    }
-  }, [canViewDashboard, router, user?.role, orgHref]);
 
   if (!canViewDashboard) {
     return <p className="text-muted-foreground">Redirecting…</p>;

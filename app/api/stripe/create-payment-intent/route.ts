@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   requireEnrollableChild,
   requireOrg,
-  resolveViewer,
+  resolveUser,
   signInRequired,
 } from "@/lib/api-viewer";
 import {
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { user } = await resolveViewer(request);
+  const user = await resolveUser(request);
   if (!user) return signInRequired();
 
   let body: CreatePaymentIntentBody;

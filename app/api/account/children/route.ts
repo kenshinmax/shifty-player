@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveViewer } from "@/lib/api-viewer";
+import { resolveUser } from "@/lib/api-viewer";
 import { addChild } from "@/lib/db/family-repository";
 import type { ChildInput } from "@/lib/player-store";
 import { LEVELS, type Level } from "@/lib/types";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 type Body = { name?: unknown; grade?: unknown; level?: unknown };
 
 export async function POST(request: Request) {
-  const { user } = await resolveViewer(request);
+  const user = await resolveUser(request);
   if (!user) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
