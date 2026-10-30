@@ -75,7 +75,7 @@ Parent clinic checkout uses [Stripe Payment Element](https://docs.stripe.com/pay
 
 On the registration payment page, parents can optionally add **team gear** (t-shirt / shorts) to the same checkout. The PaymentIntent amount is tuition (`$460`) plus server-priced swag; the order snapshot is stored on the player as `merchandiseOrder`.
 
-Flow: create PaymentIntent → confirm Payment Element → server `confirm-enrollment` retrieves the PaymentIntent from Stripe **and enrolls in MongoDB**. The webhook also enrolls idempotently and records metrics.
+Flow: create PaymentIntent → confirm Payment Element → server `confirm-enrollment` **persists the verification request** and returns `pending` immediately. A background worker (`instrumentation.ts` boots `lib/payment-verification.ts`) retrieves the PaymentIntent from Stripe, validates it, enrolls in MongoDB with retries, and records the final status (`pending → verified → enrolled`, or `failed` after `PAYMENT_VERIFICATION_MAX_ATTEMPTS`). The webhook enqueues the same idempotent job instead of enrolling inline. Clients poll `GET /api/payments/[paymentIntentId]/status` for the outcome and can re-enqueue failures via `POST /api/payments/[paymentIntentId]/retry`.
 
 Paid enrollments still increment Prometheus series via `/api/metrics/events` (and the webhook) — see Metrics below.
 

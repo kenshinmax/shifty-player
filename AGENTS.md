@@ -1,32 +1,102 @@
-Basketball Player Registration
+AGENTS.md
 
-Business Requirements
- - An MVP of a basketball player session registration application as a web app
- - The web app should have 1 page 
- - The page should list all registered players as a table
- - Each row in the table should show some player details and enable edits
- - Add new sessions and players to each session
- - Allow filter for players and sessions by year and month
- - No more functionality: no archive, no search.  Keep it simple
- - The priority is a clean UI using React Shadcn
- - The appplication should open with sample data poplulaing a single session in 2026 with 10 registered players
-- Ability to manage players and sessions
+Project Overview
 
-Technical Details
-1. Single page to show all registered players in a table
-2. Actions: Add players with a simiple form, edit player details and enalbe players to select from different sessions to register for
-Tech: Next.js app frontend, client-rendered, localStorage persistence for registration + auth session, demo auth
-Quality: scaffolding + unit test per phase; Playwright E2E
+Shifty Player Platform is a web application designed to help youth sports organizations manage players, programs, registrations, and payments.
 
-<!-- BEGIN:nextjs-agent-rules -->
+Technology Stack
 
-# This is NOT the Next.js you know
+* Frontend: React
+* Backend: Node.js
+* Database: MongoDB
+* Payments: Stripe
+* Source Control: GitHub
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+General Rules
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+1. Keep it simple. Prefer straightforward solutions over complex implementations.
+2. Understand before changing. Review existing code, architecture, and dependencies before making modifications.
+3. Follow existing patterns. Reuse established components, utilities, APIs, and conventions.
+4. Make minimal changes. Only modify files necessary to complete the requested task.
+5. Avoid unnecessary dependencies. Do not introduce new libraries unless clearly justified.
+6. Preserve existing functionality. Do not break working features or change unrelated behavior.
+7. Ask when unclear. If requirements are ambiguous or a change could affect important functionality, request clarification.
 
-<!-- END:nextjs-agent-rules -->
+Development Guidelines
 
-# Styling
-Use the brand color tokens in `app/globals.css` (`bg-canvas`, `border-brand`, `text-tone-success-ink`, …) instead of raw Tailwind palette classes. See `docs/brand-guidelines.md` for the palette, status-tone meanings and layout patterns.
+Frontend — React
+
+* Reuse existing components when possible.
+* Follow established styling and component patterns.
+* Keep components small and maintainable.
+* Handle loading, empty, and error states.
+
+Backend — Node.js
+
+* Follow existing API and service patterns.
+* Keep business logic separate from routing when practical.
+* Validate incoming data.
+* Handle errors consistently.
+
+Database — MongoDB
+
+* Follow existing schema and model conventions.
+* Avoid unnecessary schema changes.
+* Do not delete or modify production data without explicit approval.
+
+Payments — Stripe
+
+* Preserve existing payment and subscription workflows.
+* Never expose API keys or sensitive payment information.
+* Do not modify payment processing logic without explicit approval.
+
+Planning and Implementation
+
+For small changes:
+
+1. Identify the relevant code.
+2. Implement the smallest reasonable solution.
+3. Run applicable tests.
+4. Summarize the changes.
+
+For larger features:
+
+1. Analyze the relevant architecture.
+2. Create an implementation specification.
+3. Identify affected files, dependencies, and risks.
+4. Wait for approval before implementing.
+5. Implement the approved changes.
+6. Run applicable tests and report results.
+
+Testing
+
+* Add or update tests when changing behavior.
+* Run existing relevant tests before completing a task.
+* Do not claim tests passed unless they were executed successfully.
+* Report any tests that could not be run.
+
+Security
+
+* Never hardcode credentials, API keys, or secrets.
+* Use existing environment variable conventions.
+* Protect player and customer information.
+* Follow existing authentication and authorization patterns.
+* Do not expose sensitive data in logs.
+
+Git and Code Changes
+
+* Keep changes focused on the requested task.
+* Do not refactor unrelated code.
+* Do not overwrite or discard existing work.
+* Do not commit or push changes unless explicitly requested.
+
+Communication
+
+After completing a task, provide:
+
+1. A brief summary of what changed.
+2. The files modified.
+3. Tests performed and their results.
+4. Any outstanding issues or recommendations.
+
+Guiding Principle: Favor simplicity, maintainability, security, and minimal changes over unnecessary complexity.

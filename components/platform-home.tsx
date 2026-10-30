@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Building2,
@@ -53,40 +54,63 @@ export function PlatformHome() {
     <div className="space-y-12" data-testid="platform-home">
       <section
         data-testid="platform-hero"
-        className="relative left-1/2 -mt-10 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden bg-ink text-ink-foreground"
+        className="relative left-1/2 -mt-10 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden bg-zinc-950 text-white"
       >
-        <div
-          className="pointer-events-none absolute inset-0 bg-linear-to-br from-brand/20 via-transparent to-transparent"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-6xl space-y-6 px-6 py-20 text-center sm:py-28">
-          <p className="font-heading text-sm font-semibold tracking-[0.22em] text-ink-foreground/70 uppercase">
-            For basketball organizations
-          </p>
-          <h1 className="font-heading text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
-            Shifty Player Platform
-          </h1>
-          <p className="mx-auto max-w-2xl text-base text-ink-foreground/70 sm:text-lg">
-            Run registrations, rosters and payments for your basketball
-            organization.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 pt-2">
-            <Link
-              href="/login"
-              className={cn(
-                buttonVariants({ size: "lg" }),
-                "bg-ink-foreground text-ink hover:bg-ink-foreground/90",
-              )}
-            >
-              Get started
-            </Link>
+        <div className="relative min-h-[min(88vh,52rem)]">
+          {/* Photo by Max Winkler on Unsplash (Unsplash License). */}
+          <div className="absolute inset-x-0 top-0 h-[60%] md:inset-0 md:h-auto">
+            <Image
+              src="/home-hero-layup.jpg"
+              alt="Basketball player rising for a layup between two defenders during a game"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-[72%_center] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-1000"
+            />
+            <div
+              className="absolute inset-0 bg-linear-to-t from-zinc-950 via-transparent via-40% to-transparent md:bg-linear-to-r md:from-zinc-950 md:via-zinc-950/80 md:via-40% md:to-zinc-950/10 md:to-75%"
+              aria-hidden
+            />
+          </div>
+
+          <div className="relative mx-auto flex min-h-[min(88vh,52rem)] max-w-6xl flex-col justify-end px-6 pt-64 pb-12 md:justify-center md:py-24">
+            <div className="max-w-lg space-y-6">
+              <h1 className="font-heading text-5xl leading-[0.95] font-bold tracking-tight text-balance sm:text-6xl lg:text-7xl">
+                Find your team. Get on the floor.
+              </h1>
+              <p className="max-w-md text-base leading-relaxed text-white/80 sm:text-lg">
+                Sign up for clinics, camps and team programs run by basketball
+                organizations on Shifty Player, all from one player account.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href="/login"
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "bg-white text-zinc-950 hover:bg-white/90",
+                  )}
+                >
+                  Create a player account
+                </Link>
+                <Link
+                  href="#home-platform"
+                  className={cn(
+                    buttonVariants({ size: "lg", variant: "outline" }),
+                    "border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white",
+                  )}
+                >
+                  How it works
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <section
+        id="home-platform"
         data-testid="home-platform"
-        className="rounded-3xl bg-canvas p-4 ring-1 ring-canvas-ring sm:p-6"
+        className="scroll-mt-24 rounded-3xl bg-canvas p-4 ring-1 ring-canvas-ring sm:p-6"
       >
         <ul className="space-y-4">
           {PLATFORM_FEATURES.map((feature) => {

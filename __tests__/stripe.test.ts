@@ -16,6 +16,7 @@ import {
   getStripe,
 } from "@/lib/stripe";
 import { computeRegistrationTotalCents } from "@/lib/merchandise";
+import { processPaymentVerifications } from "@/lib/payment-verification";
 
 // HubSpot sync is scheduled with after(), which needs a request scope.
 vi.mock("next/server", async (importOriginal) => ({
@@ -244,37 +245,39 @@ describe("stripe webhook", () => {
       tuitionCents,
     });
     if (metadataOrgId === undefined) delete metadata.orgId;
+    const intent = {
+      id: intentId,
+      object: "payment_intent" as const,
+      status: "succeeded",
+      amount: computeRegistrationTotalCents([], tuitionCents),
+      currency: STRIPE_CURRENCY,
+      metadata,
+    };
     const payload = JSON.stringify({
       id: `evt_${intentId}`,
       object: "event",
       type: "payment_intent.succeeded",
-      data: {
-        object: {
-          id: intentId,
-          object: "payment_intent",
-          status: "succeeded",
-          amount: computeRegistrationTotalCents([], tuitionCents),
-          currency: STRIPE_CURRENCY,
-          metadata,
-        },
-      },
+      data: { object: intent },
     });
     const signature = getStripe().webhooks.generateTestHeaderString({
       payload,
       secret: WEBHOOK_SECRET,
     });
-    return postWebhook(
+    const res = await postWebhook(
       new Request("http://localhost/api/stripe/webhook", {
         method: "POST",
         headers: { "stripe-signature": signature },
         body: payload,
       }),
     );
+    return { res, intent };
   }
 
   it("webhook falls back to the default org without metadata.orgId", async () => {
-    const res = await deliver(undefined, "pi_no_org");
+    const { res, intent } = await deliver(undefined, "pi_no_org");
     expect(res.status).toBe(200);
+    // The webhook only enqueues; the worker verifies and enrolls.
+    await processPaymentVerifications(async () => intent);
     const state = await getRegistrationState(DEFAULT_ORG_ID);
     const child = state.players.find((player) => player.id === PLAYER)!;
     expect(child.sessionIds).toContain(CLINIC);
@@ -282,8 +285,9 @@ describe("stripe webhook", () => {
 
   it("webhook does not enroll for an unknown org", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const res = await deliver("org-missing", "pi_missing_org");
+    const { res, intent } = await deliver("org-missing", "pi_missing_org");
     expect(res.status).toBe(200);
+    await processPaymentVerifications(async () => intent);
     expect(await getDocStore().count("enrollments", { childId: PLAYER })).toBe(0);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();

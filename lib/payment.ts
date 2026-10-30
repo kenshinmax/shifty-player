@@ -19,10 +19,12 @@ export function buildPaymentLink(player: Player): string {
  * 1. Server creates a PaymentIntent with metadata:
  *    { orgId, playerId, programId, clinicId, parentUserId, amountCents }
  * 2. Client confirms with Stripe Payment Element (card never hits our servers).
- * 3. Client calls confirm-enrollment; server retrieves the PaymentIntent,
- *    checks status / amount / metadata, then **enrolls in MongoDB**.
- * 4. Webhook `payment_intent.succeeded` also enrolls idempotently + metrics.
- * 5. Client refreshes state from `GET /api/orgs/[orgId]/state` (no localStorage enrollment).
+ * 3. Client calls confirm-enrollment; the server persists the verification
+ *    request and returns "pending" immediately.
+ * 4. The background worker (see lib/payment-verification.ts) retrieves the
+ *    PaymentIntent, checks status / amount / metadata, then enrolls in MongoDB,
+ *    with retries for transient failures. The webhook enqueues the same job.
+ * 5. Client polls `GET /api/payments/[paymentIntentId]/status` until enrolled.
  */
 export const STRIPE_ENROLLMENT_SOURCE = "stripe.payment_intent.succeeded";
 

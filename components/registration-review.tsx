@@ -279,6 +279,52 @@ function OrderTotalBreakdown({
   );
 }
 
+type VerificationOutcome =
+  | { status: "enrolled"; state: AppState }
+  | { status: "failed"; error: string }
+  | { status: "timeout" };
+
+const POLL_INTERVAL_MS = 1500;
+const POLL_TIMEOUT_MS = 60_000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * The server verifies payments asynchronously: confirm-enrollment returns
+ * "pending" and the final status (persisted server-side) is polled here.
+ */
+async function pollVerificationStatus(
+  paymentIntentId: string,
+): Promise<VerificationOutcome> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await sleep(POLL_INTERVAL_MS);
+    try {
+      const response = await fetch(
+        `/api/payments/${encodeURIComponent(paymentIntentId)}/status`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) continue;
+      const body = (await response.json()) as {
+        status?: string;
+        error?: string;
+        state?: AppState;
+      };
+      if (body.status === "enrolled" && body.state) {
+        return { status: "enrolled", state: body.state };
+      }
+      if (body.status === "failed") {
+        return { status: "failed", error: body.error ?? "Payment verification failed." };
+      }
+    } catch {
+      // Transient network error: keep polling until the deadline.
+    }
+  }
+  return { status: "timeout" };
+}
+
 type StripeCheckoutFormProps = {
   playerId: string;
   programId: string;
@@ -304,6 +350,53 @@ function StripeCheckoutForm({
   const { id: orgId } = useOrg();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verifyIntentId, setVerifyIntentId] = useState<string | null>(null);
+
+  const finishEnrolled = (state: AppState) => {
+    applyState(state);
+    emitMetricsEvent("payment_succeeded");
+    onEnrolled(
+      `Payment received. ${playerName} is registered for ${clinicLabel}.`,
+    );
+  };
+
+  const pollUntilDone = async (intentId: string) => {
+    const outcome = await pollVerificationStatus(intentId);
+    if (outcome.status === "enrolled") {
+      finishEnrolled(outcome.state);
+      return;
+    }
+    emitMetricsEvent("payment_failed");
+    setError(
+      outcome.status === "timeout"
+        ? "Payment verification is taking longer than expected. Your payment is safe — try again in a moment."
+        : outcome.error,
+    );
+    setSubmitting(false);
+  };
+
+  /** Asks the server to re-run a failed verification, then resumes polling. */
+  const retryVerification = async () => {
+    if (!verifyIntentId) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/payments/${encodeURIComponent(verifyIntentId)}/retry`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        setError(body.error ?? "Could not retry verification.");
+        setSubmitting(false);
+        return;
+      }
+      await pollUntilDone(verifyIntentId);
+    } catch {
+      setError("Could not retry verification. Please try again.");
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -345,25 +438,21 @@ function StripeCheckoutForm({
         }),
       });
       const verifyBody = (await verifyResponse.json()) as {
-        approved?: boolean;
+        status?: string;
+        paymentIntentId?: string;
         error?: string;
-        state?: AppState;
       };
 
-      if (!verifyResponse.ok || !verifyBody.approved) {
+      if (!verifyResponse.ok || verifyBody.status !== "pending") {
         emitMetricsEvent("payment_failed");
         setError(verifyBody.error ?? "Could not verify payment.");
         setSubmitting(false);
         return;
       }
 
-      // confirm-enrollment already enrolled the player; show its state.
-      applyState(verifyBody.state);
-
-      emitMetricsEvent("payment_succeeded");
-      onEnrolled(
-        `Payment received. ${playerName} is registered for ${clinicLabel}.`,
-      );
+      // Verification runs in the background; poll the persisted status.
+      setVerifyIntentId(verifyBody.paymentIntentId!);
+      await pollUntilDone(verifyBody.paymentIntentId!);
     } catch {
       emitMetricsEvent("payment_failed");
       setError("Could not verify payment. Please try again.");
@@ -388,6 +477,16 @@ function StripeCheckoutForm({
         <Button type="submit" size="lg" disabled={!stripe || submitting}>
           {submitting ? "Processing…" : `Pay ${formatCents(totalCents)}`}
         </Button>
+        {error && verifyIntentId && !submitting ? (
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            onClick={() => void retryVerification()}
+          >
+            Retry verification
+          </Button>
+        ) : null}
         <Link
           href="/account"
           className={cn(buttonVariants({ variant: "outline", size: "lg" }))}

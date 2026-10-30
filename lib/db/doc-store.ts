@@ -9,6 +9,7 @@ export type CollectionName =
   | "enrollments"
   | "orders"
   | "processed_payments"
+  | "payment_verifications"
   | "players"
   | "players_legacy";
 
@@ -37,7 +38,9 @@ export type MemorySeed = Partial<Record<CollectionName, object[]>>;
 type Row = Record<string, unknown>;
 
 function uniqueKey(c: CollectionName): string {
-  return c === "processed_payments" ? "paymentIntentId" : "id";
+  return c === "processed_payments" || c === "payment_verifications"
+    ? "paymentIntentId"
+    : "id";
 }
 
 function matches(doc: Row, filter: Filter): boolean {
@@ -121,6 +124,7 @@ const ALL_COLLECTIONS: CollectionName[] = [
   "enrollments",
   "orders",
   "processed_payments",
+  "payment_verifications",
   "players",
   "players_legacy",
 ];

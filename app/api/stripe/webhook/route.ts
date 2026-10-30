@@ -1,18 +1,7 @@
-import { after, NextResponse } from "next/server";
-import { syncEnrollmentToHubSpot } from "@/lib/hubspot-sync";
-import type { AppState } from "@/lib/types";
-import { recordMetricsEvent } from "@/lib/metrics";
-import { buildMerchandiseOrder } from "@/lib/merchandise";
-import {
-  claimProcessedPayment,
-  enrollPaidInDb,
-  getRegistrationState,
-} from "@/lib/db/registration-repository";
-import { getOrganizationById } from "@/lib/db/platform-repository";
+import { NextResponse } from "next/server";
+import { enqueuePaymentVerification } from "@/lib/db/payment-verification-repository";
 import { DEFAULT_ORG_ID } from "@/lib/organizations";
-import { getClinicTuitionCents } from "@/lib/programs";
 import {
-  evaluatePaymentIntentForEnrollment,
   getStripe,
   isStripeConfigured,
 } from "@/lib/stripe";
@@ -22,9 +11,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Stripe webhook for payment_intent.succeeded.
- * Idempotently enrolls in MongoDB (including swag order), records metrics and
- * syncs HubSpot.
+ * Stripe webhook for payment_intent.succeeded. Persists the verification
+ * request (requirement 3); the async worker verifies, enrolls idempotently
+ * (requirement 1), records metrics and syncs HubSpot.
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -69,52 +58,14 @@ export async function POST(request: Request) {
     const clinicId = paymentIntent.metadata.clinicId;
     // Intents created before orgs existed carry no orgId.
     const orgId = paymentIntent.metadata.orgId ?? DEFAULT_ORG_ID;
-    let enrolledState: AppState | null = null;
-    const org = await getOrganizationById(orgId);
-    if (!org) {
-      console.warn(
-        `Stripe webhook: organization ${orgId} not found; ${paymentIntent.id} not enrolled.`,
-      );
-    } else if (playerId && programId && clinicId) {
-      const state = await getRegistrationState(orgId);
-      const clinic = state.sessions.find((session) => session.id === clinicId);
-      const tuitionCents = clinic
-        ? getClinicTuitionCents(clinic)
-        : undefined;
-      const evaluation = evaluatePaymentIntentForEnrollment(paymentIntent, {
+    if (playerId && programId && clinicId) {
+      await enqueuePaymentVerification({
+        paymentIntentId: paymentIntent.id,
+        orgId,
         playerId,
         programId,
         clinicId,
-        tuitionCents,
       });
-      if (evaluation.approved) {
-        const merchandiseOrder = buildMerchandiseOrder(
-          clinicId,
-          evaluation.cart,
-          new Date().toISOString(),
-          evaluation.tuitionCents,
-        );
-        const enrolled = await enrollPaidInDb(
-          orgId,
-          playerId,
-          programId,
-          clinicId,
-          merchandiseOrder.paidAt,
-          merchandiseOrder,
-        );
-        if (!("error" in enrolled)) enrolledState = enrolled.state;
-      }
-    }
-    const claimed = await claimProcessedPayment(paymentIntent.id);
-    if (claimed) {
-      recordMetricsEvent("payment_succeeded");
-      // confirm-enrollment may claim this payment first; whichever path claims it syncs HubSpot.
-      if (enrolledState) {
-        const state = enrolledState;
-        after(() =>
-          syncEnrollmentToHubSpot(state, playerId, programId, paymentIntent.id),
-        );
-      }
     }
   }
 
