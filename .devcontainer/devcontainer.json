@@ -1,0 +1,36 @@
+// Dev container for Shifty Player (Next.js + Vitest + Playwright).
+// See the "Dev container" section in README.md.
+{
+  "name": "Shifty Player",
+  // Node 22: the jsdom-based Vitest component tests need Node 22+.
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+
+  // Keep node_modules in a container volume. The host copy holds macOS
+  // native binaries (Tailwind/lightningcss, @splunk/otel) that won't run on Linux.
+  "mounts": [
+    "source=shifty-player-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
+  ],
+
+  // The volume is created root-owned; hand it to the node user, then install
+  // dependencies and the Chromium build Playwright uses for e2e tests.
+  "postCreateCommand": "sudo chown node:node node_modules && npm ci && npx playwright install --with-deps chromium",
+
+  "forwardPorts": [3000, 3100],
+  "portsAttributes": {
+    "3000": { "label": "App (npm run dev)", "onAutoForward": "notify" },
+    "3100": { "label": "E2E server (npm run test:e2e)", "onAutoForward": "silent" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "ms-playwright.playwright",
+        "vitest.explorer"
+      ]
+    }
+  },
+
+  "remoteUser": "node"
+}

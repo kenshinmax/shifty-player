@@ -40,6 +40,13 @@ Notes:
 - Pass `PORT=4000 npm start` to serve on a different port.
 - Set `NEXT_DIST_DIR` to build somewhere other than `.next/`, for example `NEXT_DIST_DIR=.next-prod npm run build`. Use this when `npm run dev` is running, because a build into `.next/` can break the dev server.
 
+## Dev container
+
+[`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json) sets up a Node 22 environment with dependencies and Playwright's Chromium installed. In VS Code, run **Dev Containers: Reopen in Container** (requires Docker and the Dev Containers extension). Ports 3000 (app) and 3100 (e2e server) are forwarded.
+
+- `node_modules` lives in a Docker volume, separate from your host copy. If dependencies change, run `npm ci` inside the container.
+- `.env.local` is part of the mounted workspace, so the container uses the same MongoDB, HubSpot and Stripe settings as your host. Leave `MONGODB_URI` unset to use the in-memory store.
+
 ## Tests
 
 - `npm test` — Vitest unit tests.
