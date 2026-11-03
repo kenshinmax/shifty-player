@@ -18,6 +18,28 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ![Shifty player registration](images/shifty-programs.png)
 
+## Build commands
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Development server with hot reload on port 3000. |
+| `npm run build` | Production build (`next build`) into `.next/`. |
+| `npm start` | Serves the production build on port 3000. Run `npm run build` first. |
+| `npm run lint` | ESLint. |
+
+To build and run a production version locally:
+
+```bash
+npm run build
+npm start
+```
+
+Notes:
+
+- The build reads `.env.local` the same way `npm run dev` does, so set your environment variables before building (see [`.env.example`](.env.example)).
+- Pass `PORT=4000 npm start` to serve on a different port.
+- Set `NEXT_DIST_DIR` to build somewhere other than `.next/`, for example `NEXT_DIST_DIR=.next-prod npm run build`. Use this when `npm run dev` is running, because a build into `.next/` can break the dev server.
+
 ## Tests
 
 - `npm test` — Vitest unit tests.

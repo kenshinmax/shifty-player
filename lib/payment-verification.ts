@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { trace } from "@opentelemetry/api";
 import { getOrganizationById } from "@/lib/db/platform-repository";
 import {
   claimDueVerification,
@@ -187,7 +188,22 @@ export async function processPaymentVerifications(
     if (!job) break;
     processed += 1;
     try {
-      await processJob(job, retrievePaymentIntent);
+      // Trace each verification so it correlates with the checkout/webhook
+      // flow by payment intent ID (plan section 3.4). The global tracer is a
+      // no-op unless telemetry is enabled, so this never affects behavior.
+      await trace
+        .getTracer("shifty-player")
+        .startActiveSpan(
+          "shifty.payment_verification",
+          { attributes: { "stripe.payment_intent.id": job.paymentIntentId } },
+          async (span) => {
+            try {
+              await processJob(job, retrievePaymentIntent);
+            } finally {
+              span.end();
+            }
+          },
+        );
     } catch (error) {
       // Unexpected crash (e.g. Mongo blip): put the job back for retry.
       await scheduleRetry(
