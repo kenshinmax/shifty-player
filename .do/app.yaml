@@ -1,0 +1,53 @@
+# DigitalOcean App Platform spec for the demo/staging deployment.
+# Create:  doctl apps create --spec .do/app.yaml   (or paste into the DO console)
+# Update:  doctl apps update <app-id> --spec .do/app.yaml
+# Runbook: docs/deploy-digitalocean.md
+#
+# Secrets are declared without values; enter them in the DO dashboard
+# (App -> Settings -> shifty-player -> Environment Variables).
+name: shifty-player
+region: nyc
+services:
+  - name: web
+    github:
+      repo: kenshinmax/shifty-player
+      branch: deploy/digitalocean
+      deploy_on_push: true
+    build_command: npm run build
+    run_command: npm start
+    environment_slug: node-js
+    http_port: 8080
+    # Exactly one instance: the payment-verification worker runs in-process
+    # and Prometheus counters live in process memory.
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    health_check:
+      http_path: /api/metrics
+      initial_delay_seconds: 20
+    envs:
+      - key: NODE_ENV
+        value: production
+        scope: RUN_TIME
+      # Telemetry stays off; logs go to stdout (DO runtime logs).
+      - key: OTEL_ENABLED
+        value: "false"
+        scope: RUN_AND_BUILD_TIME
+      - key: MONGODB_DB
+        value: shifty_staging
+        scope: RUN_TIME
+      - key: MONGODB_URI
+        type: SECRET
+        scope: RUN_TIME
+      - key: STRIPE_SECRET_KEY
+        type: SECRET
+        scope: RUN_TIME
+      - key: STRIPE_WEBHOOK_SECRET
+        type: SECRET
+        scope: RUN_TIME
+      # Inlined into the client bundle at build time.
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        scope: RUN_AND_BUILD_TIME
+        value: pk_test_REPLACE_ME
+      - key: HUBSPOT_ACCESS_TOKEN
+        type: SECRET
+        scope: RUN_TIME

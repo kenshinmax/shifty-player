@@ -5,6 +5,8 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { assertPersistentStore } = await import("@/lib/mongo");
+  assertPersistentStore();
   // Start OpenTelemetry (Splunk export) first so the worker and every API
   // route share the global tracer/meter providers. No-ops unless enabled
   // via environment variables (see documentation/planned/otel-splunk-implementation-plan.md).
