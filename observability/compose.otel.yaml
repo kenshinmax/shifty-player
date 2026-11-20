@@ -1,0 +1,25 @@
+# Deployment template, not started by app/test commands.
+# Bind to loopback by default. Remote use requires private networking + TLS.
+services:
+  otel-collector:
+    image: quay.io/signalfx/splunk-otel-collector:0.164.0@sha256:b47bb5e100eee4b68c450b29e711a150f6ade7d441a6e4593ca9c74e72252c7c
+    command: ["--config=/etc/otelcol/collector.yaml"]
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      SPLUNK_HEC_URL: ${SPLUNK_HEC_URL:?Set the HTTPS HEC collector URL}
+      SPLUNK_HEC_TOKEN: ${SPLUNK_HEC_TOKEN:?Inject the collector-only HEC token}
+      SPLUNK_TRACES_INDEX: ${SPLUNK_TRACES_INDEX:?Set an event index for traces}
+      SPLUNK_METRICS_INDEX: ${SPLUNK_METRICS_INDEX:?Set a metrics index}
+      GOMEMLIMIT: 400MiB
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/collector.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:13133:13133"
+      - "127.0.0.1:8888:8888"

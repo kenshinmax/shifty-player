@@ -1,161 +1,193 @@
-import { afterEach, describe, expect, it } from "vitest";
+// @vitest-environment node
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   metrics as otelApi,
+  SpanStatusCode,
   type Attributes,
-  type Counter,
   type MeterProvider,
-  type Span,
 } from "@opentelemetry/api";
-import type { ReadableSpan } from "@opentelemetry/sdk-trace";
+import {
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+  TracerProvider,
+} from "@opentelemetry/sdk-trace";
 import { SanitizingSpanProcessor, isOtelEnabled, startOtel } from "@/lib/otel";
 import { recordMetricsEvent } from "@/lib/metrics";
 
-type SpanCalls = { key: string; value: string | number | boolean }[];
-
-function fakeSpan(attributes: Attributes): { span: Span; setCalls: SpanCalls } {
-  const setCalls: SpanCalls = [];
-  const span = {
-    attributes,
-    setAttribute: (key: string, value: string | number | boolean) => {
-      setCalls.push({ key, value });
-      attributes[key] = value;
-    },
-  };
-  return { span: span as unknown as Span, setCalls };
-}
-
-const OTEL_ENV_KEYS = ["OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT"];
+const { start } = vi.hoisted(() => ({ start: vi.fn() }));
+vi.mock("@splunk/otel", () => ({ start }));
+vi.mock("@splunk/otel/lib/tracing/options", () => ({
+  defaultSpanProcessorFactory: () => [],
+}));
 
 afterEach(() => {
-  for (const key of OTEL_ENV_KEYS) delete process.env[key];
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  otelApi.disable();
+  start.mockReset();
+  delete (globalThis as { __shiftyOtelStarted?: boolean }).__shiftyOtelStarted;
 });
 
 describe("isOtelEnabled", () => {
   it("is disabled unless enabled and an endpoint are both configured", () => {
-    process.env.OTEL_ENABLED = "true";
+    vi.stubEnv("OTEL_ENABLED", "true");
+    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "");
     expect(isOtelEnabled()).toBe(false);
-
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://ingest.example.com:4317";
+    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.example:4318");
     expect(isOtelEnabled()).toBe(true);
-
-    process.env.OTEL_ENABLED = "false";
+    vi.stubEnv("OTEL_ENABLED", "false");
     expect(isOtelEnabled()).toBe(false);
   });
 });
 
 describe("startOtel", () => {
   it("no-ops when telemetry is disabled", async () => {
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://ingest.example.com:4317";
-    // OTEL_ENABLED unset: must resolve without starting the distribution.
+    vi.stubEnv("OTEL_ENABLED", "");
+    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.example:4318");
     await expect(startOtel()).resolves.toBeUndefined();
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("does not expose configuration in bootstrap errors", async () => {
+    vi.stubEnv("OTEL_ENABLED", "true");
+    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.example:4318");
+    start.mockImplementation(() => { throw new Error("Synthetic credential in SDK error"); });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(startOtel()).resolves.toBeUndefined();
+    expect(log.mock.calls).toEqual([["OpenTelemetry bootstrap failed."]]);
   });
 });
 
 describe("metrics bridge", () => {
-  it("records business events on OTel counters with attributes", () => {
-    // The metrics API resolves the global provider at counter-creation time
-    // (no proxy like tracing), so a provider must be set before the first
-    // event. This mirrors production, where register() awaits startOtel()
-    // before any traffic.
-    class RecordingCounter implements Counter {
-      calls: { value: number; attributes?: Attributes }[] = [];
-      add(value: number, attributes?: Attributes) {
-        this.calls.push({ value, attributes });
-      }
-    }
-    class RecordingMeter {
-      counters = new Map<string, RecordingCounter>();
-      createCounter(name: string) {
-        if (!this.counters.has(name)) this.counters.set(name, new RecordingCounter());
-        return this.counters.get(name) as RecordingCounter;
-      }
-    }
-    const meter = new RecordingMeter();
+  it("records all events, including after an earlier no-op provider was used", () => {
+    recordMetricsEvent("registration_started");
+    const counters = new Map<string, ReturnType<typeof vi.fn>>();
+    const createCounter = vi.fn((name: string) => {
+      const add = vi.fn();
+      counters.set(name, add);
+      return { add };
+    });
     otelApi.setGlobalMeterProvider({
-      getMeter: () => meter,
+      getMeter: () => ({ createCounter }),
     } as unknown as MeterProvider);
 
     recordMetricsEvent("registration_started");
     recordMetricsEvent("payment_succeeded");
     recordMetricsEvent("payment_failed");
+    recordMetricsEvent("payment_succeeded");
 
-    expect(meter.counters.get("shifty.registrations")?.calls).toEqual([
-      { value: 1, attributes: undefined },
+    expect(createCounter).toHaveBeenCalledTimes(3);
+    expect(counters.get("shifty.registrations")?.mock.calls).toEqual([[1]]);
+    expect(counters.get("shifty.payments")?.mock.calls).toEqual([
+      [1, { status: "succeeded" }],
+      [1, { status: "failed" }],
+      [1, { status: "succeeded" }],
     ]);
-    expect(meter.counters.get("shifty.payments")?.calls).toEqual([
-      { value: 1, attributes: { status: "succeeded" } },
-      { value: 1, attributes: { status: "failed" } },
-    ]);
-    expect(meter.counters.get("shifty.clinic_enrollments")?.calls).toEqual([
-      { value: 1, attributes: undefined },
-    ]);
-
-    otelApi.disable();
+    expect(counters.get("shifty.clinic_enrollments")?.mock.calls).toEqual([[1], [1]]);
   });
+
+  it.each(["meter lookup", "counter creation", "counter increment"])(
+    "silently tolerates failures during %s",
+    (failure) => {
+      const fail = () => { throw new Error("Synthetic telemetry failure"); };
+      vi.spyOn(otelApi, "getMeter").mockImplementation(
+        failure === "meter lookup" ? fail : () => ({
+          createCounter: failure === "counter creation" ? fail : () => ({ add: fail }),
+        }) as unknown as ReturnType<typeof otelApi.getMeter>,
+      );
+      for (const type of ["registration_started", "payment_succeeded", "payment_failed"] as const) {
+        expect(() => recordMetricsEvent(type)).not.toThrow();
+      }
+    },
+  );
 });
 
 describe("SanitizingSpanProcessor", () => {
-  const sensitiveAttributes = {
-    "http.url":
-      "https://api.stripe.com/v1/payment_intents?email=parent@example.com",
+  const sensitiveAttributes: Attributes = {
+    "http.url": "https://api.stripe.com/v1/payment_intents?email=parent@example.com",
     "http.target": "/api/orgs/o1/players?name=Jimmy",
-    "http.request.header.authorization": "Bearer sk_test_123",
+    "url.full": "https://synthetic-user:synthetic-password@api.stripe.com/v1/payment_intents?client_secret=synthetic#secret",
+    "url.path": "/v1/payment_intents",
+    "http.request.header.authorization": "Bearer synthetic-secret",
+    "http.response.header.set-cookie": "session=synthetic",
     "url.query": "email=parent@example.com",
     "db.statement": '{"find":"players","filter":{"name":"Jimmy"}}',
+    "db.query.text": '{"email":"parent@example.com"}',
+    "player.name": "Jimmy",
+    "customer.email": "parent@example.com",
+    "customer.phone": "555-0100",
+    "customer.address": "Synthetic street",
+    "request.body": '{"name":"Jimmy"}',
+    "custom.unreviewed": "sensitive",
   };
-  const safeAttributes = {
-    "http.route": "/api/orgs/o1/players",
+  const safeAttributes: Attributes = {
+    "http.route": "/api/orgs/[orgId]/players",
     "http.request.method": "POST",
-    "db.name": "shifty",
-    "db.operation": "find",
+    "http.response.status_code": 200,
+    "db.namespace": "shifty",
+    "db.operation.name": "find",
+    "db.collection.name": "players",
+    "stripe.payment_intent.id": "pi_test",
+  };
+  const sanitizedAttributes = {
+    ...Object.fromEntries(Object.keys(sensitiveAttributes).map((key) => [key, "[REDACTED]"])),
+    "http.url": "https://api.stripe.com/v1/payment_intents",
+    "http.target": "/api/orgs/o1/players",
+    "url.full": "https://api.stripe.com/v1/payment_intents",
+    "url.path": "/v1/payment_intents",
+    ...safeAttributes,
   };
 
-  it("redacts sensitive attributes at span start", () => {
-    const processor = new SanitizingSpanProcessor();
-    const { span, setCalls } = fakeSpan({
-      ...sensitiveAttributes,
-      ...safeAttributes,
-    });
+  it.each(["start", "end"])(
+    "sanitizes attributes set at span %s before a real SDK export",
+    async (when) => {
+      const exporter = new InMemorySpanExporter();
+      const provider = new TracerProvider({
+        spanProcessors: [
+          new SanitizingSpanProcessor(),
+          new SimpleSpanProcessor({ exporter }),
+        ],
+      });
+      try {
+        const attributes = { ...sensitiveAttributes, ...safeAttributes };
+        const span = provider.getTracer("privacy-test").startSpan("POST /api/stripe?email=parent@example.com", {
+          attributes: when === "start" ? attributes : {},
+        });
+        if (when === "end") span.setAttributes(attributes);
+        span.addEvent("exception", {
+          "exception.type": "Error",
+          "exception.message": "Failed for parent@example.com",
+          "exception.stacktrace": "Error: sensitive customer data",
+          "customer.name": "Jimmy",
+        });
+        span.addLink({
+          context: span.spanContext(),
+          attributes: { "customer.email": "parent@example.com" },
+        });
+        span.setStatus({ code: SpanStatusCode.ERROR, message: "parent@example.com" });
+        span.end();
+        await provider.forceFlush();
+        const exported = exporter.getFinishedSpans()[0];
+        expect(exported.name).toBe("POST /api/stripe");
+        expect(exported.attributes).toEqual(sanitizedAttributes);
+        expect(exported.events[0].attributes).toEqual({
+          "exception.type": "Error",
+          "exception.message": "[REDACTED]",
+          "exception.stacktrace": "[REDACTED]",
+          "customer.name": "[REDACTED]",
+        });
+        expect(exported.links[0].attributes).toEqual({ "customer.email": "[REDACTED]" });
+        expect(exported.status).toEqual({ code: SpanStatusCode.ERROR, message: "[REDACTED]" });
+      } finally {
+        await provider.shutdown();
+      }
+    },
+  );
 
-    processor.onStart(span);
-
-    expect(setCalls).toEqual(
-      expect.arrayContaining([
-        {
-          key: "http.url",
-          value: "https://api.stripe.com/v1/payment_intents",
-        },
-        { key: "http.target", value: "/api/orgs/o1/players" },
-        { key: "http.request.header.authorization", value: "[REDACTED]" },
-        { key: "url.query", value: "[REDACTED]" },
-        { key: "db.statement", value: "[REDACTED]" },
-      ]),
-    );
-    // Safe attributes are untouched.
-    expect(setCalls).not.toContainEqual(
-      expect.objectContaining({ key: "http.route" }),
-    );
-    expect(setCalls).not.toContainEqual(
-      expect.objectContaining({ key: "db.name" }),
-    );
-  });
-
-  it("scrubs again at span end for attributes set after start", () => {
-    const processor = new SanitizingSpanProcessor();
-    const { span, setCalls } = fakeSpan({ ...safeAttributes });
-
-    processor.onStart(span);
-    expect(setCalls).toHaveLength(0);
-
-    (span as unknown as { attributes: Attributes }).attributes[
-      "http.response.header.set-cookie"
-    ] = "session=abc123";
-    processor.onEnd(span as unknown as ReadableSpan);
-
-    expect(setCalls).toContainEqual({
-      key: "http.response.header.set-cookie",
-      value: "[REDACTED]",
-    });
+  it("redacts malformed URLs and non-string URL values", () => {
+    const attributes: Attributes = { "url.full": "https://[invalid", "http.target": ["sensitive"] };
+    new SanitizingSpanProcessor().onStart({ attributes } as unknown as Parameters<SanitizingSpanProcessor["onStart"]>[0]);
+    expect(attributes).toEqual({ "url.full": "[REDACTED]", "http.target": "[REDACTED]" });
   });
 
   it("resolves flush and shutdown without work", async () => {

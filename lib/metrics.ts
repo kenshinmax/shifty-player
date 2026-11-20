@@ -1,5 +1,5 @@
 import type { MetricsEventType } from "@/lib/metrics-client";
-import { otelCounters } from "@/lib/otel";
+import { recordOtelMetricsEvent } from "@/lib/otel";
 import {
   Counter,
   Registry,
@@ -59,19 +59,16 @@ export function recordMetricsEvent(type: MetricsEventType): void {
   switch (type) {
     case "registration_started":
       metrics.registrationsTotal.inc();
-      otelCounters.registrationsTotal.add(1);
       break;
     case "payment_succeeded":
       metrics.paymentsTotal.inc({ status: "succeeded" });
       metrics.clinicEnrollmentsTotal.inc();
-      otelCounters.paymentsTotal.add(1, { status: "succeeded" });
-      otelCounters.clinicEnrollmentsTotal.add(1);
       break;
     case "payment_failed":
       metrics.paymentsTotal.inc({ status: "failed" });
-      otelCounters.paymentsTotal.add(1, { status: "failed" });
       break;
   }
+  recordOtelMetricsEvent(type);
 }
 
 export async function renderMetrics(): Promise<string> {

@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:staging": "playwright test --config=playwright.staging.config.ts",
+    "otel:compare": "node scripts/compare-otel-validation.mjs",
     "migrate:orgs": "node --env-file=.env.local scripts/run-ts.mjs scripts/migrate-to-orgs.ts"
   },
   "dependencies": {

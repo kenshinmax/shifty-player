@@ -110,6 +110,11 @@ Paid enrollments still increment Prometheus series via `/api/metrics/events` (an
 
 ## Metrics (Prometheus / Grafana)
 
+For the OpenTelemetry → collector → Splunk Enterprise pipeline, see the
+[collector and staging validation runbook](observability/otel-splunk-runbook.md).
+It includes the gateway template, guarded disposable-staging browser command,
+checkout latency/error comparison, and live acceptance checklist.
+
 The app exposes Prometheus metrics for an **existing** Prometheus/Grafana stack (for example on another machine’s Kubernetes cluster). No local Prometheus/Grafana containers are required.
 
 | Endpoint | Purpose |

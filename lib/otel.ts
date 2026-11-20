@@ -1,6 +1,6 @@
 /**
  * OpenTelemetry bootstrap for Splunk export.
- * See documentation/planned/otel-splunk-implementation-plan.md (Phase 1).
+ * See docs/superpowers/plans/otel-splunk-implementation-plan.md.
  *
  * Telemetry is entirely environment-configured and no-ops unless
  * OTEL_ENABLED=true and OTEL_EXPORTER_OTLP_ENDPOINT are set, so local dev,
@@ -11,6 +11,7 @@
 import type { Attributes, Span } from "@opentelemetry/api";
 import type { ReadableSpan, SpanProcessor } from "@opentelemetry/sdk-trace";
 import { metrics as otelMetrics, type Counter } from "@opentelemetry/api";
+import type { MetricsEventType } from "@/lib/metrics-client";
 
 const globalForOtel = globalThis as typeof globalThis & {
   __shiftyOtelStarted?: boolean;
@@ -18,17 +19,35 @@ const globalForOtel = globalThis as typeof globalThis & {
 
 const REDACTED = "[REDACTED]";
 
-/** Keys that must never be exported with their original value (PRD NFR2). */
-const FULLY_REDACTED_KEYS =
-  /header|cookie|authorization|token|password|secret|email|url\.query|db\.statement|db\.query/i;
+/** Only reviewed operational attributes retain their values (PRD NFR2). */
+const SAFE_ATTRIBUTE_KEYS = new Set([
+  "http.route", "http.method", "http.request.method", "http.status_code",
+  "http.response.status_code", "http.scheme", "http.flavor",
+  "url.scheme", "server.address", "server.port",
+  "net.peer.name", "net.peer.port", "net.host.name", "net.host.port",
+  "network.protocol.name", "network.protocol.version", "network.transport",
+  "db.system", "db.system.name", "db.name", "db.namespace",
+  "db.operation", "db.operation.name", "db.mongodb.collection", "db.collection.name",
+  "next.span_type", "next.route", "next.rsc", "next.bubble",
+  "exception.type", "exception.escaped", "error.type",
+  "stripe.payment_intent.id",
+]);
 
 /** Keys whose value may contain a query string with user data; keep the path. */
-const URL_KEYS = /(^|\.)http\.(url|target)$|(^|\.)url\.full$/i;
+const URL_KEYS = /^(http\.(url|target)|url\.(full|path)|next\.span_name)$/i;
 
-function scrubValue(key: string, value: unknown): string {
-  const asString = typeof value === "string" ? value : String(value);
-  if (URL_KEYS.test(key)) return asString.split("?")[0];
-  return REDACTED;
+function scrubUrl(value: unknown): string {
+  if (typeof value !== "string") return REDACTED;
+  const withoutQuery = value.split(/[?#]/)[0];
+  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(withoutQuery)) return withoutQuery;
+  try {
+    const url = new URL(withoutQuery);
+    url.username = "";
+    url.password = "";
+    return url.toString();
+  } catch {
+    return REDACTED;
+  }
 }
 
 type WritableSpan = Span & { attributes?: Attributes };
@@ -41,13 +60,17 @@ type WritableSpan = Span & { attributes?: Attributes };
  */
 export class SanitizingSpanProcessor implements SpanProcessor {
   onStart(span: Span): void {
-    scrubAttributes(span as WritableSpan);
+    scrubAttributes((span as WritableSpan).attributes);
   }
 
   onEnd(span: ReadableSpan): void {
-    // onEnd receives the same mutable span object; scrub late-set attributes
-    // before the downstream export processors queue the span.
-    scrubAttributes(span as unknown as WritableSpan);
+    // The SDK refuses setAttribute() after end(). Its exported attribute maps
+    // remain mutable: scrub them before downstream processors queue the span.
+    scrubAttributes(span.attributes);
+    (span as { name: string }).name = scrubUrl(span.name);
+    for (const event of span.events) scrubAttributes(event.attributes);
+    for (const link of span.links) scrubAttributes(link.attributes);
+    if (span.status.message) span.status.message = REDACTED;
   }
 
   forceFlush(): Promise<void> {
@@ -59,13 +82,11 @@ export class SanitizingSpanProcessor implements SpanProcessor {
   }
 }
 
-function scrubAttributes(span: WritableSpan): void {
-  const attributes = span.attributes;
+function scrubAttributes(attributes?: Attributes): void {
   if (!attributes) return;
   for (const key of Object.keys(attributes)) {
-    if (FULLY_REDACTED_KEYS.test(key) || URL_KEYS.test(key)) {
-      span.setAttribute(key, scrubValue(key, attributes[key]));
-    }
+    if (URL_KEYS.test(key)) attributes[key] = scrubUrl(attributes[key]);
+    else if (!SAFE_ATTRIBUTE_KEYS.has(key)) attributes[key] = REDACTED;
   }
 }
 
@@ -77,7 +98,8 @@ function scrubAttributes(span: WritableSpan): void {
  * provider stay bound to the no-op meter forever. First use happens after
  * registration (register() awaits startOtel() before traffic is served).
  * While telemetry is disabled the global provider is a no-op, so these
- * no-op harmlessly.
+ * no-op harmlessly. Re-resolve counters if the provider changes, so an early
+ * no-op lookup cannot permanently disable business metrics.
  */
 type BusinessCounters = {
   registrationsTotal: Counter;
@@ -86,9 +108,11 @@ type BusinessCounters = {
 };
 
 let businessCounters: BusinessCounters | undefined;
+let businessMeterProvider: ReturnType<typeof otelMetrics.getMeterProvider>;
 
 function getBusinessCounters(): BusinessCounters {
-  if (!businessCounters) {
+  const provider = otelMetrics.getMeterProvider();
+  if (!businessCounters || provider !== businessMeterProvider) {
     const meter = otelMetrics.getMeter("shifty-player");
     businessCounters = {
       registrationsTotal: meter.createCounter("shifty.registrations", {
@@ -101,6 +125,7 @@ function getBusinessCounters(): BusinessCounters {
         description: "Successful clinic enrollments after payment.",
       }),
     };
+    businessMeterProvider = provider;
   }
   return businessCounters;
 }
@@ -116,6 +141,26 @@ export const otelCounters = {
     return getBusinessCounters().clinicEnrollmentsTotal;
   },
 };
+
+/** Telemetry failures must not interrupt the existing Prometheus/payment path. */
+export function recordOtelMetricsEvent(type: MetricsEventType): void {
+  try {
+    switch (type) {
+      case "registration_started":
+        otelCounters.registrationsTotal.add(1);
+        break;
+      case "payment_succeeded":
+        otelCounters.paymentsTotal.add(1, { status: "succeeded" });
+        otelCounters.clinicEnrollmentsTotal.add(1);
+        break;
+      case "payment_failed":
+        otelCounters.paymentsTotal.add(1, { status: "failed" });
+        break;
+    }
+  } catch {
+    // Loss-tolerant by design. Never log payloads or credentials.
+  }
+}
 
 /** Telemetry runs only when explicitly enabled with a Splunk ingest endpoint. */
 export function isOtelEnabled(): boolean {
@@ -160,8 +205,9 @@ export async function startOtel(): Promise<void> {
       opamp: false,
       secureapp: false,
     });
-  } catch (error) {
+  } catch {
     // Never let telemetry break the app; degraded telemetry is acceptable.
-    console.error("OpenTelemetry bootstrap failed:", error);
+    // SDK errors can contain endpoint credentials or other configuration.
+    console.error("OpenTelemetry bootstrap failed.");
   }
 }

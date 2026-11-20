@@ -97,10 +97,51 @@ The Splunk HEC token and destination index are configured on the collector gatew
 >    - Worker span (`shifty.payment_verification`, added in `lib/payment-verification.ts`): carries only `stripe.payment_intent.id` (permitted for correlation).
 >    - Residual risk check deferred to Phase 3 staging validation (live payload review).
 
+> **Phase 2 privacy and reliability follow-up (2026-11-05):**
+>
+> - The installed trace SDK ignores `setAttribute()` once a span ends. Replaced that ineffective end-of-span sanitization with in-place scrubbing of the exported attribute maps, before the default Splunk processors run. Regression tests use the actual SDK provider and in-memory exporter, not mutable fake spans.
+> - Span, event, and link attributes now retain only explicitly reviewed operational fields (HTTP route/method/status, database namespace/operation/collection, server/protocol metadata, Next.js routing metadata, error types, and `stripe.payment_intent.id`). Other values, including headers, bodies, names, emails, phone numbers, addresses, database queries, user agents, and unknown custom attributes, become `[REDACTED]`.
+> - URL attributes and URL-bearing span names lose query strings and fragments; absolute URL attributes also lose embedded credentials. Current app routes use identifiers in path parameters, not customer names or emails. Any new URL/path capture must be reviewed before extending this policy.
+> - Exception messages/stacks and status messages can embed customer data, so their values are redacted while exception/error types and status codes remain. This intentionally limits free-text error detail to satisfy mandatory NFR2. The installed undici instrumentation records exception events and may capture `user_agent.original`; these are now covered, correcting the earlier audit's overly broad “no headers” statement. MongoDB query serialization masks values by default but still exposes document field names; the entire query attribute is redacted regardless of that setting.
+> - OTel meter lookup, counter creation, and increment failures silently degrade without affecting Prometheus updates or event responses. Lazy counters are refreshed when the global meter provider changes, avoiding permanent no-op counters after early calls. Bootstrap failures no longer log raw SDK errors that may contain configuration secrets.
+> - Validation: all 242 unit/regression tests passed, including the browser-event POST route, both counter backends, unchanged Prometheus business-series text and scrape headers, and real SDK privacy regressions. TypeScript and focused telemetry lint checks passed. Repository-wide lint still reports three existing `react-hooks/set-state-in-effect` errors in `components/program-detail-page.tsx` and `components/registration-review.tsx` (plus seven warnings). Checks use the installed Node 24 runtime; the shell's default Node 18 cannot start the current Vitest/Vite toolchain.
+> - Live collector/Splunk payload review, staging e2e, and checkout overhead measurements remain Phase 3 gates. No credentials, environment configuration, payment logic, or deployment settings were changed.
+
 6. Add the OTel counters bridge in `lib/metrics.ts` per 3.3; keep `/api/metrics` output byte-identical.
 7. Audit captured span attributes for PII (NFR2): confirm no player/customer fields, no auth headers, no Stripe tokens; payment intent IDs only.
 
 ### Phase 3 — Validation and collector gateway
+
+> **Status (2026-11-05): repository preparation implemented; live acceptance pending.**
+> Scope approved for this pass: gateway configuration, validation tooling, and
+> runbook only, not deployment or remote writes. The user will provide a disposable
+> staging URL and access method separately.
+>
+> - Added a version/digest-pinned Splunk Collector Compose template and OTLP →
+>   HEC pipelines with separate trace event and metrics indexes, bounded queues,
+>   retries, memory limits, and certificate verification. HEC credentials stay
+>   on the collector. Ports bind to loopback; remote routing/TLS remains an
+>   infrastructure prerequisite.
+> - Added `npm run test:e2e:staging`, requiring explicit reset permission and an
+>   exact disposable-origin acknowledgement. It starts no local server and runs
+>   serially without browser trace/video/screenshot capture. The default local
+>   command is unchanged. Existing demo tests cannot prove Stripe/Mongo coverage,
+>   and their seed helper remains disabled in production builds.
+> - Added `npm run otel:compare -- <baseline.json> <candidate.json>` for per-endpoint
+>   checkout p95 (<5 ms increase) and error-rate checks. It rejects incomplete or
+>   mismatched evidence; synthetic tool tests are not staging performance evidence.
+> - Deployment instructions, privacy/degradation checks, evidence schema, and
+>   Splunk-owned dashboard/alert requirements are in the
+>   [Phase 3 runbook](../../../observability/otel-splunk-runbook.md).
+> - Local checks: 260 unit/regression tests, TypeScript, focused lint, and Compose
+>   syntax validation passed. Both Playwright configs discover the same 15 tests;
+>   the remote command rejects missing target/reset permission as expected.
+>   Browser tests were not executed. The collector binary's schema validation
+>   could not run because the Docker daemon is stopped. Repository-wide lint
+>   still reports the same three unrelated errors and seven warnings from Phase 2.
+> - Live collector deployment, staging execution, Splunk ingestion/payload review,
+>   checkout overhead measurements, and external dashboards/alerts are still
+>   pending. No production enablement is authorized by this preparation work.
 
 > Launch scope (PRD decision 2): telemetry is enabled in **production only**. Staging enables it temporarily for the validation below.
 
