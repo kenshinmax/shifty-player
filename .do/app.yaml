@@ -11,7 +11,7 @@ services:
   - name: web
     github:
       repo: kenshinmax/shifty-player
-      branch: deploy/digitalocean
+      branch: main
       deploy_on_push: true
     build_command: npm run build
     run_command: npm start

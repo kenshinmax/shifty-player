@@ -32,7 +32,7 @@ Reuse an existing cluster (a new free **M0** also works).
 
 ## 2. Push the code
 
-App Platform builds from GitHub (`kenshinmax/shifty-player`, branch `deploy/digitalocean`
+App Platform builds from GitHub (`kenshinmax/shifty-player`, branch `main`
 the spec). Only committed and pushed code is deployed. Change `branch` in
 `.do/app.yaml` to deploy a different branch.
 
